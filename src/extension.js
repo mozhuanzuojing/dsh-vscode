@@ -176,7 +176,7 @@ async function showDiagnostics() {
   }
   const s = proxy ? proxy.stats : { httpRequests: 0, openPathCalls: 0, pickDirectoryCalls: 0, wsConnections: 0, wsFailures: 0 };
   const items = [
-    { label: '$(settings-gear) 配置 harness 地址…', description: '打开输入框重新录入并保存（与状态栏/标题栏按钮相同）', kind: vscode.QuickPickItemKind.Default, alwaysShow: true, action: 'configure' },
+    { label: '$(settings-gear) 配置 harness 地址…', description: '打开输入框重新录入并保存', kind: vscode.QuickPickItemKind.Default, alwaysShow: true, action: 'configure' },
     { label: '代理端口', description: proxy ? proxy.origin : '未启动' },
     { label: 'harness 地址', description: `${used} — ${reachable}` },
     { label: '端口检测', description: descriptionOfPortDetection(proxy, requested) },
@@ -203,14 +203,6 @@ async function activate(context) {
   statusBar.tooltip = 'DSH Client — 点击查看端口检测与配置（DSH: 诊断）';
   statusBar.show();
   context.subscriptions.push(statusBar);
-
-  // 配置入口按钮：随时重新打开「配置 harness 地址」弹窗
-  const configButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
-  configButton.text = '$(settings-gear) 配置';
-  configButton.tooltip = 'DSH Client — 录入/修改 harness 地址';
-  configButton.command = 'awakening.configureHarnessUrl';
-  configButton.show();
-  context.subscriptions.push(configButton);
 
   context.subscriptions.push(
     vscode.commands.registerCommand('dsh.openSidebar', openSidebar),
