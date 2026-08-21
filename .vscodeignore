@@ -5,3 +5,13 @@ scripts/**
 package-lock.json
 *.log
 **/*.map
+
+src/
+dist/scripts/
+!dist/extension.js
+!dist/config.js
+!dist/detect.js
+!dist/editor-context.js
+!dist/prompt.js
+!dist/proxy.js
+!dist/view.js

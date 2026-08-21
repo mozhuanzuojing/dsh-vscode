@@ -1,8 +1,7 @@
-#!/usr/bin/env node
-'use strict';
+// @ts-nocheck
 /* 架构改进后的单元测试：config 模块 + prompt 模块（注入 fake，无需 VS Code）。 */
-const { createConfig } = require('../src/config');
-const { createPrompt } = require('../src/prompt');
+import { createConfig } from '../config';
+import { createPrompt } from '../prompt';
 
 let failures = 0;
 function check(name, ok, detail) { console.log((ok ? 'PASS' : 'FAIL') + '  ' + name + (detail ? '  — ' + detail : '')); if (!ok) failures++; }
@@ -33,7 +32,7 @@ check('hasScopeOverride true', cfgWithOverride.hasScopeOverride() === true);
 const cfgFolderOverride = createConfig(() => ({ get: () => {}, inspect: () => ({ workspaceFolderValue: 'http://folder:8080' }), update: async () => {} }));
 check('hasScopeOverride workspaceFolderValue', cfgFolderOverride.hasScopeOverride() === true);
 // ---- editor-context 模块 ----
-const { formatEditorContext } = require('../src/editor-context');
+import { formatEditorContext } from '../editor-context';
 check('formatEditorContext 无文件→空串', formatEditorContext({}) === '');
 check('formatEditorContext 只路径', formatEditorContext({ filePath: '/a/b.ts' }).includes('file: /a/b.ts'));
 check('formatEditorContext 路径+选区',

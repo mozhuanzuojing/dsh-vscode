@@ -25,7 +25,7 @@
     "proxy",
     "webview"
   ],
-  "main": "./src/extension.js",
+  "main": "./dist/extension.js",
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -161,11 +161,18 @@
     }
   },
   "scripts": {
-    "probe": "node scripts/probe.js",
-    "smoke": "node scripts/proxy-smoke.cjs",
-    "test": "node scripts/test-units.cjs"
+    "build": "tsgo -p tsconfig.json",
+    "probe": "npm run build && node dist/scripts/probe.js",
+    "smoke": "npm run build && node dist/scripts/proxy-smoke.js",
+    "test": "npm run build && node dist/scripts/test-units.js"
   },
   "dependencies": {
     "ws": "^8.18.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.2.0",
+    "@types/vscode": "^1.134.0",
+    "@types/ws": "^8.18.1",
+    "@typescript/native-preview": "^7.0.0-dev.20260707.2"
   }
 }

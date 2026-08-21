@@ -32,6 +32,7 @@
 
 ## 特性
 
+- ⚙️ TypeScript（ts7/tsgo 编译，CommonJS）
 - 🐋 DeepSeek 官方黑鲸图标（activity bar + 编辑器右上角按钮）
 - 📍 视图自动移入辅助侧边栏（可拖回主侧栏）
 - 🖼️ 原版 DSH web 全部能力：会话、轨迹、工具调用、附件、模型选择、权限预设、goal 等

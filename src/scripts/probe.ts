@@ -1,10 +1,9 @@
-#!/usr/bin/env node
-'use strict';
+// @ts-nocheck
 /**
  * harness 协议探针：验证根页面、RPC 信封、WebSocket 下行流。
  * 用法: node scripts/probe.js [baseUrl]    （env DSH_BASE_URL 亦可）
  */
-const { WebSocket } = require('ws');
+import { WebSocket } from 'ws';
 
 const BASE = process.env.DSH_BASE_URL || process.argv[2] || 'http://127.0.0.1:3082';
 

@@ -1,5 +1,4 @@
-#!/usr/bin/env node
-'use strict';
+// @ts-nocheck
 /**
  * 代理冒烟：对运行中的 harness 验证
  *   ① HTTP 转发       ② 真实 RPC 转发 + 恶意 Origin 改写过围栏
@@ -8,9 +7,9 @@
  *   ⑥ pickDirectory 降级开关（mock 上游：关闭=转发，开启=拦截）
  * 用法: node scripts/proxy-smoke.cjs [baseUrl]   （env DSH_BASE_URL 亦可）
  */
-const http = require('node:http');
-const { WebSocket } = require('ws');
-const { createProxy } = require('../src/proxy');
+import * as http from 'node:http';
+import { WebSocket } from 'ws';
+import { createProxy } from '../proxy';
 
 const BASE = process.env.DSH_BASE_URL || process.argv[2] || 'http://127.0.0.1:3082';
 const opened = [];
