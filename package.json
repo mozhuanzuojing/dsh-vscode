@@ -130,7 +130,8 @@
   },
   "scripts": {
     "probe": "node scripts/probe.js",
-    "smoke": "node scripts/proxy-smoke.cjs"
+    "smoke": "node scripts/proxy-smoke.cjs",
+    "test": "node scripts/test-units.cjs"
   },
   "dependencies": {
     "ws": "^8.18.0"
