@@ -11,7 +11,7 @@
     "url": "https://github.com/mozhuanzuojing/dsh-vscode.git"
   },
   "engines": {
-    "vscode": "^1.85.0"
+    "vscode": "^1.120.0"
   },
   "categories": [
     "Other",
@@ -161,7 +161,7 @@
     }
   },
   "scripts": {
-    "build": "tsgo -p tsconfig.json",
+    "build": "tsc -p tsconfig.json",
     "probe": "npm run build && node dist/scripts/probe.js",
     "smoke": "npm run build && node dist/scripts/proxy-smoke.js",
     "test": "npm run build && node dist/scripts/test-units.js"
@@ -171,8 +171,8 @@
   },
   "devDependencies": {
     "@types/node": "^26.2.0",
-    "@types/vscode": "^1.134.0",
+    "@types/vscode": "^1.120.0",
     "@types/ws": "^8.18.1",
-    "@typescript/native-preview": "^7.0.0-dev.20260707.2"
+    "typescript": "^7.0.2"
   }
 }
