@@ -5,6 +5,10 @@ import * as vscode from 'vscode';
  * 只在一个「回合窗口」内生效（用户刚向 DSH 发消息/选区命令后的 30s）。
  * 只 revert「磁盘变了且没有本地未保存修改(isDirty=false)」的文件——绝不覆盖用户的脏改动。
  */
+export interface ApplyDiffOptions {
+  log?: (level: string, msg: string) => void;
+}
+
 export interface ApplyDiff {
   /** 打开回合窗口：之后 30s 内外部文件变更若命中已打开的非脏编辑器则 revert。 */
   armTurnWindow(durationMs?: number): void;
@@ -13,7 +17,8 @@ export interface ApplyDiff {
 
 interface OpenDoc { uri: vscode.Uri; isDirty: boolean; }
 
-export function createApplyDiff(vscodeRef: typeof vscode): ApplyDiff {
+export function createApplyDiff(vscodeRef: typeof vscode, options: ApplyDiffOptions = {}): ApplyDiff {
+  const log = options.log || ((_l: string, _m: string) => {});
   let armUntil = 0;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
@@ -30,12 +35,12 @@ export function createApplyDiff(vscodeRef: typeof vscode): ApplyDiff {
     const entry = map.get(fsPath);
     if (!entry) return;                 // 没打开这个文件
     if (entry.isDirty) {                // 有未保存修改 ⚠️ 绝不覆盖
-      console.log('[dsh-client] 跳过 revert（文件有未保存修改）: ' + fsPath);
+      log('info', '跳过 revert（文件有未保存修改）: ' + fsPath);
       return;
     }
     vscodeRef.commands.executeCommand('workbench.action.files.revert', entry.uri).then(
-      () => {}, (e: Error) => console.log('[dsh-client] revert 失败: ' + e.message));
-    console.log('[dsh-client] 已同步磁盘改动到编辑器: ' + fsPath);
+      () => {}, (e: Error) => log('info', 'revert 失败: ' + e.message));
+    log('info', '已同步磁盘改动到编辑器: ' + fsPath);
   }
 
   const watcher = vscodeRef.workspace.createFileSystemWatcher('**/*', false, true, false);
@@ -45,7 +50,7 @@ export function createApplyDiff(vscodeRef: typeof vscode): ApplyDiff {
     armUntil = Date.now() + durationMs;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => { armUntil = 0; }, durationMs + 500);
-    console.log('[dsh-client] 应用 diff 窗口已开启（' + durationMs + 'ms）');
+    log('info', '应用 diff 窗口已开启（' + durationMs + 'ms）');
   }
 
   return { armTurnWindow, dispose: () => { if (timer) clearTimeout(timer); watcher.dispose(); } };

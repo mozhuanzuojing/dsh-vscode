@@ -26,7 +26,8 @@ export function createEditorContext(): EditorContextBarrel {
   return { block: '' };
 }
 
-export function bindEditorContext(ctx: EditorContextBarrel, vscode: VscodeLike): EditorContextBarrel {
+export function bindEditorContext(ctx: EditorContextBarrel, vscode: VscodeLike): { ctx: EditorContextBarrel; dispose(): void } {
+  const disposables: { dispose(): void }[] = [];
   function refresh() {
     const editor = vscode.window.activeTextEditor;
     const doc = editor && editor.document;
@@ -39,8 +40,8 @@ export function bindEditorContext(ctx: EditorContextBarrel, vscode: VscodeLike):
       selectionText: sel ? doc.getText(sel) : undefined,
     });
   }
-  vscode.window.onDidChangeActiveTextEditor(refresh);
-  vscode.window.onDidChangeTextEditorSelection((e: { textEditor: unknown }) => { if (e.textEditor === vscode.window.activeTextEditor) refresh(); });
+  disposables.push(vscode.window.onDidChangeActiveTextEditor(refresh));
+  disposables.push(vscode.window.onDidChangeTextEditorSelection((e: { textEditor: unknown }) => { if (e.textEditor === vscode.window.activeTextEditor) refresh(); }));
   refresh();
-  return ctx;
+  return { ctx, dispose: () => { for (const d of disposables) { try { d.dispose(); } catch { /* noop */ } } } };
 }

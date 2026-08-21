@@ -237,8 +237,10 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.window.registerWebviewViewProvider('dsh.chatView', provider, { webviewOptions: { retainContextWhenHidden: true } })
   );
 
-  bindEditorContext(editorContext, vscode);
-  applyDiff = createApplyDiff(vscode);
+  const { dispose: disposeEditorCtx } = bindEditorContext(editorContext, vscode);
+  context.subscriptions.push({ dispose: disposeEditorCtx });
+  applyDiff = createApplyDiff(vscode, { log });
+  context.subscriptions.push(applyDiff);
 
   try {
     await restartProxy().catch((err) => vscode.window.showErrorMessage(
