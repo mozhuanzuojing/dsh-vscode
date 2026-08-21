@@ -117,3 +117,58 @@ dsh-vscode/
 - Theme follows the harness's own settings (the original UI's theme), not the VS Code theme.
 - Webview WS behavior is subject to the real machine: if the event stream in the iframe does not update, run `DSH: 诊断` and check the WS count.
 - The proxy only listens on a random `127.0.0.1` port, not exposed to the network.
+## Troubleshooting
+
+> Single entry point: **run `DSH: 诊断` first** — it reports proxy port / harness URL + reachability / port-detection source / HTTP / openPath / pickDirectory / WebSocket relay (connections/failures) / recently opened / recently picked. Each entry below tells you which field to watch, how to judge, then how to fix.
+
+### 1. Blank sidebar / stuck on "Connecting to DSH..."
+
+- **Symptom**: the iframe is blank after opening the sidebar, or stays on the connecting hint.
+- **Watch**: is the `harness 地址` row `不可达: ...` or `可达 (HTTP 200)`? Does `代理端口` show a port (not "未启动")?
+- **Diagnosis**: blank iframe = the harness homepage did not load; `不可达` = proxy-to-harness connection down; `未启动` = the proxy failed in the extension host (see the `DSH Client` output channel / the `代理启动失败` popup).
+- **Fix**
+  1. Make sure the harness is running (`DSH: 在浏览器打开原版界面` opening proves it).
+  2. If default 3080 is not reachable, the extension auto-scans [3080,3099] (`端口检测` row will show `自动检测到...`); if still unreachable, set `dsh.baseUrl` manually.
+  3. Close/reopen the sidebar, or run `DSH: 刷新界面` to remount the iframe.
+
+### 2. UI does not update after sending a message
+
+- **Symptom**: messages send but the trace/response does not appear automatically.
+- **Watch**: is `WebSocket 透传` `0 连接 / 0 失败`, or many failures?
+- **Diagnosis**: `0 连接` for the two downlinks (`/api/events.mux`, `/api/events.host`) means the event channel is closed; many failures means the proxy-to-harness WS handshake is failing.
+- **Fix**: run `DSH: 刷新界面` to reopen the streams; if still broken check `harness 地址` reachability. Transient drops self-heal via the harness client-connection exponential backoff — wait a moment.
+
+### 3. Clicking a file path does not open it in VS Code
+
+- **Symptom**: clicked a file path/link in the original UI but nothing opens in the editor.
+- **Watch**: did `openPath 拦截` count +1? Does the path show under `最近打开的文件`?
+- **Diagnosis**: count unchanged = the request never arrived (the UI entry may not use `host.openPath`); count increased but nothing opened = `vscode.open` failed (path missing/not visible to VS Code).
+- **Fix**: check the path under `最近打开的文件`; it must be visible to VS Code (hard prerequisite: shared filesystem). If the path is wrong you are probably in a cross-machine topology — see Known limitations.
+
+### 4. "Select Directory" does not open a dialog / opens on another machine
+
+- **Symptom**: no VS Code native picker, or the harness machine's OS dialog appears instead.
+- **Watch**: is `pickDirectory 拦截` `开` or `关`? Did the count +1?
+- **Diagnosis**: `关` = interception disabled, forwarded to the harness host (by design) — set it to `开` to pick locally; `开` but no +1 = request did not reach the proxy or the UI used the browse file tree.
+- **Fix**: set `dsh.interceptPickDirectory=true` and use the native entry (the browse tree renders inside the iframe; it is not a dialog).
+
+### 5. "Proxy failed to start" popup on window open
+
+- **Symptom**: VS Code shows `DSH Client: 代理启动失败（...）`.
+- **Watch**: the error text (502 / ECONNREFUSED / ECONNRESET ...) and the `端口检测` row.
+- **Diagnosis**: usually the harness was not up yet at startup, or `dsh.baseUrl` points somewhere unreachable.
+- **Fix**: after the harness is confirmed running, run `DSH: 刷新界面` / reload the window; or set `dsh.baseUrl` to a definitely-reachable URL.
+
+### 6. `WebSocket 透传` shows many failures / stays at 0
+
+- **Symptom**: `连接 0 / 失败 N` in diagnostics.
+- **Watch**: `harness 地址` reachability; whether `端口检测` stabilizes.
+- **Diagnosis**: WS goes through proxy-to-harness upstream handshake (reusing the Origin/Host rewrite); failures mean the harness WS endpoint rejects or times out (e.g. non-101).
+- **Fix**: confirm the harness version/process is healthy; refresh the iframe to reconnect; if frequent, wait — the harness reconnect backoff handles it.
+
+### 7. Auto-detection finds no port, but the harness is running
+
+- **Symptom**: `端口检测` shows "not detected, using default 3080" although dsh is listening somewhere (e.g. 3999).
+- **Watch**: the scan range [3080,3099] and the "not detected" message.
+- **Diagnosis**: the probe range is limited (3080-3099, marker `__DSH_BOOT__` in the homepage); an out-of-range port is not found.
+- **Fix**: set `dsh.baseUrl` to the real address explicitly (explicit config takes priority, no scanning); to widen detection, change `HARNESS_PROBE_RANGE` and rebuild.
