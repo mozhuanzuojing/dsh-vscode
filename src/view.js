@@ -63,7 +63,7 @@ class DshViewProvider {
     }
     const color = s.detected ? 'green' : 'orange'; // 已定位 harness / 未检测到(回退)
     const port = s.origin ? new URL(s.origin).port : '?';
-    return '<div id="banner"><span class="dot ' + color + '"></span><span class="b-text">DSH 代理:' + port + '</span><span class="b-sep">·</span><span class="b-text">harness: ' + s.baseUrl + '</span></div>';
+    return '<div id="banner"><span class="dot ' + color + '"></span><span class="b-text b-label">DSH :' + port + '</span><span class="b-sep">·</span><span class="b-text b-url">' + s.baseUrl + '</span></div>';
   }
 
   renderHtml() {
@@ -102,8 +102,10 @@ class DshViewProvider {
   #banner .dot.green { background: #3fb950; }
   #banner .dot.orange { background: #d29922; }
   #banner .dot.gray { background: #8b949e; }
-  #banner .b-text { }
-  #banner .b-sep { opacity: 0.5; }
+  #banner .b-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #banner .b-label { flex: none; }
+  #banner .b-url { flex: 1 1 auto; }
+  #banner .b-sep { flex: none; opacity: 0.5; }
   #frame { position: fixed; top: 26px; left: 0; width: 100%; height: calc(100% - 26px); border: 0; }
   #status {
     position: fixed; top: 26px; left: 0; width: 100%; height: calc(100% - 26px);
