@@ -199,7 +199,8 @@ async function activate(context) {
 
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBar.text = '$(browser) DSH';
-  statusBar.command = 'dsh.openSidebar';
+  statusBar.command = 'dsh.diagnostics'; // 点击展示端口检测/配置（DSH: 诊断）
+  statusBar.tooltip = 'DSH Client — 点击查看端口检测与配置（DSH: 诊断）';
   statusBar.show();
   context.subscriptions.push(statusBar);
 
@@ -233,6 +234,7 @@ async function activate(context) {
   // 先注册视图（代理未就绪时显示占位），再启动代理——端口扫描可能耗时，不能让激活卡在它前面
   provider = new DshViewProvider({
     getOrigin: () => (proxy ? proxy.origin : ''),
+    getStatus: () => (proxy ? { origin: proxy.origin, baseUrl: proxy.baseUrl, detected: proxy.detectedBaseUrl !== false } : null),
     logger: log,
   });
   context.subscriptions.push(

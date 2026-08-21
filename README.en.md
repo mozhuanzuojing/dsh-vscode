@@ -37,7 +37,8 @@ Embed the original DeepSeek Harness (DSH) Web interface in the VS Code secondary
 - 🖼️ All original DSH web capabilities: conversations, traces, tool calls, attachments, model selection, permission presets, goals, etc.
 - 📂 Click a file path → opens in VS Code
 - 📁 Directory selection → native VS Code picker (Cursor-like)
-- 🩺 `DSH: 诊断` command shows proxy/connectivity stats; `DSH: 在浏览器打开原版界面` opens the original UI in a browser for comparison
+- 🔝 Top banner in the view: reachability dot + proxy port + harness URL
+- 🩺 Clicking the status-bar `DSH :port` opens `DSH: 诊断` (port detection page + config entry); `DSH: 在浏览器打开原版界面` opens the original UI in a browser for comparison
 
 ## Quick start
 
@@ -83,6 +84,7 @@ Settings:
 | Command | Description |
 | --- | --- |
 | Open DSH Sidebar | Focus the DSH view (secondary sidebar) |
+| (status-bar `DSH :port` click) | Opens `DSH: 诊断` — port detection page + config entry |
 | Awakening: 打开设置 | Open this extension's VS Code settings page (config entry) |
 | Awakening: 配置 harness 地址 | Re-open the input box to enter/change the harness URL (status-bar gear, editor title, and diagnostics panel) |
 | DSH: 刷新界面 | Reload the iframe |
