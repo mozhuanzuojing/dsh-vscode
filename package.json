@@ -1,0 +1,101 @@
+{
+  "name": "dsh-vscode",
+  "displayName": "DSH Client",
+  "description": "在 VSCode 辅助侧边栏内嵌 100% 原版 DeepSeek Harness (DSH) Web 界面；点击对话/轨迹里的文件路径直接在 VSCode 编辑器打开。",
+  "version": "0.1.0",
+  "publisher": "local",
+  "license": "MIT",
+  "private": true,
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Machine Learning"
+  ],
+  "keywords": [
+    "dsh",
+    "deepseek-harness",
+    "deepseek",
+    "sidebar",
+    "proxy",
+    "webview"
+  ],
+  "main": "./src/extension.js",
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "contributes": {
+    "commands": [
+      {
+        "command": "dsh.openSidebar",
+        "title": "Open DSH Sidebar",
+        "category": "DSH"
+      },
+      {
+        "command": "dsh.refresh",
+        "title": "DSH: 刷新界面",
+        "category": "DSH"
+      },
+      {
+        "command": "dsh.diagnostics",
+        "title": "DSH: 诊断",
+        "category": "DSH"
+      },
+      {
+        "command": "dsh.openInBrowser",
+        "title": "DSH: 在浏览器打开原版界面",
+        "category": "DSH"
+      }
+    ],
+    "menus": {
+      "editor/title": [
+        {
+          "command": "dsh.openSidebar",
+          "group": "navigation",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "dsh",
+          "title": "DSH",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "dsh": [
+        {
+          "type": "webview",
+          "id": "dsh.chatView",
+          "name": "DSH Chat"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "DSH Client",
+      "properties": {
+        "dsh.baseUrl": {
+          "type": "string",
+          "default": "http://127.0.0.1:3082",
+          "description": "DSH harness Web 服务地址（dsh web --port 默认 3082；旧版默认 3080）。修改后自动重启本地代理并刷新界面。"
+        },
+        "dsh.interceptPickDirectory": {
+          "type": "boolean",
+          "default": true,
+          "description": "拦截 host.pickDirectory 并在 VSCode 里弹原生目录选择器（Cursor 同款体验）。关闭后原样转发给 harness，由 harness 宿主弹它自己的对话框——跨机拓扑（VSCode 与 harness 不共享文件系统）的降级路径。修改后自动重启本地代理。"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "probe": "node scripts/probe.js",
+    "smoke": "node scripts/proxy-smoke.cjs"
+  },
+  "dependencies": {
+    "ws": "^8.18.0"
+  }
+}
