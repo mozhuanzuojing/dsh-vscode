@@ -28,7 +28,12 @@ const prompt = createPrompt({
   showWarning: (msg) => vscode.window.showWarningMessage('DSH Client: ' + msg),
   showInfo: (msg) => vscode.window.showInformationMessage('DSH Client: ' + msg, { modal: false }),
   isReachable: (url) => probe(url, { timeoutMs: 1500 }),
-  persistUrl: (url) => config.persistBaseUrl(url, { workspace: vscode.ConfigurationTarget.Workspace, global: vscode.ConfigurationTarget.Global }),
+  persistUrl: async (url) => {
+    await config.updateBaseUrl(url, vscode.ConfigurationTarget.Global);
+    if (config.hasScopeOverride()) {
+      vscode.window.showWarningMessage('DSH Client: 当前 workspace/文件夹层级的 awakening.dsh.baseUrl 会覆盖此处保存的全局值，请在设置中确认实际生效地址。');
+    }
+  },
   restartProxy: () => restartProxy(),
   log: (lvl, msg) => log(lvl, msg),
 });

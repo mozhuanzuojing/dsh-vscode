@@ -49,11 +49,10 @@ function createConfig(getConfiguration) {
     updateBaseUrl(url, target) {
       return cfg().update('baseUrl', url, target);
     },
-    /** 持久化 baseUrl 到「当前生效的作用域」：有 workspace/workspaceFolder 覆盖则写那里，否则写 global。 */
-    persistBaseUrl(url, targets) {
+    /** 是否存在 workspace/workspaceFolder 层的 baseUrl 覆盖（写 Global 时可能被屏蔽）。 */
+    hasScopeOverride() {
       const inspected = cfg().inspect('baseUrl');
-      const hasWorkspace = !!(inspected && (inspected.workspaceValue !== undefined || inspected.workspaceFolderValue !== undefined));
-      return cfg().update('baseUrl', url, hasWorkspace ? targets.workspace : targets.global);
+      return !!(inspected && (inspected.workspaceValue !== undefined || inspected.workspaceFolderValue !== undefined));
     },
   };
 }

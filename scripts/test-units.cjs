@@ -25,6 +25,12 @@ check('normalizeBaseUrl 非法→null', cfg.normalizeBaseUrl('not a url') === nu
 const cfgBad = createConfig(() => stubConfig({ probeRange: [9999] }));
 check('getProbeRange 非法回退默认', JSON.stringify(cfgBad.getProbeRange()) === '[3080,3099]');
 check('getProbeRange 合法保留', JSON.stringify(cfg.getProbeRange()) === '[4000,4099]');
+// hasScopeOverride
+const cfgNoOverride = createConfig(() => ({ get: () => {}, inspect: () => ({}), update: async () => {} }));
+check('hasScopeOverride false', cfgNoOverride.hasScopeOverride() === false);
+const cfgWithOverride = createConfig(() => ({ get: () => {}, inspect: () => ({ workspaceValue: 'http://override:8080' }), update: async () => {} }));
+check('hasScopeOverride true', cfgWithOverride.hasScopeOverride() === true);
+
 
 // ---- prompt 模块 ----
 (async () => {
