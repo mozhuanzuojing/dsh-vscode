@@ -1,6 +1,7 @@
 # DSH Client
 
 > 在 VSCode 里用 100% 原版 DSH Web 界面
+> [English](README.en.md) | 中文
 
 在 VSCode 辅助侧边栏（secondary sidebar）内嵌原版 DeepSeek Harness (DSH) Web 界面，点击对话/轨迹里的文件路径直接在 VSCode 编辑器里打开 —— 快速文件阅读。
 
