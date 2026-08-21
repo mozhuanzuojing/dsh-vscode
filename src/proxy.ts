@@ -28,6 +28,7 @@ export interface ProxyOptions {
   onPickDirectory?: () => Promise<string | null>;
   interceptPickDirectory?: boolean;
   editorContext?: { block: string };
+  onSessionPrompt?: () => void;
   logger?: (level: string, msg: string) => void;
 }
 export interface ProxyStats {
@@ -49,6 +50,7 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
   const onPickDirectory = options.onPickDirectory || (async () => { throw new Error('未配置 onPickDirectory 处理函数'); });
   const interceptPickDirectory = options.interceptPickDirectory !== false;
   const editorContext = options.editorContext || { block: '' };
+  const onSessionPrompt = options.onSessionPrompt || (() => {});
   const logger = options.logger || ((_level: string, _msg: string) => {});
 
   const stats: ProxyStats = {
@@ -161,6 +163,7 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
     let raw = ''; for await (const chunk of req) raw += chunk;
     let envelope: any = {}; try { envelope = JSON.parse(raw || '{}'); } catch { envelope = {}; }
     if (envelope && envelope.payload && typeof envelope.payload.sessionId === 'string') proxy.lastSessionId = envelope.payload.sessionId;
+    onSessionPrompt();
     const block = editorContext && editorContext.block;
     if (block && envelope && Array.isArray(envelope.payload && envelope.payload.content)) {
       envelope.payload.content.unshift({ type: 'text', text: block });

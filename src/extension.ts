@@ -5,9 +5,11 @@ import { detectHarnessUrl, probe } from './detect';
 import { createConfig, normalizeBaseUrl, DEFAULT_BASE_URL, Config } from './config';
 import { createPrompt, Prompt } from './prompt';
 import { createEditorContext, bindEditorContext, EditorContextBarrel } from './editor-context';
+import { createApplyDiff, ApplyDiff } from './apply-diff';
 
 const config: Config = createConfig(vscode.workspace.getConfiguration);
 const editorContext: EditorContextBarrel = createEditorContext();
+let applyDiff: ApplyDiff;
 
 let proxy: ProxyHandle | null = null;
 let provider: DshViewProvider | null = null;
@@ -96,7 +98,9 @@ async function restartProxy(): Promise<ProxyHandle> {
     const resolved = await resolveHarnessBaseUrl();
     proxy = await createProxy({
       baseUrl: resolved.url, interceptPickDirectory, editorContext,
-      onOpenPath: openPathInVscode, onPickDirectory: pickDirectoryInVscode, logger: log,
+      onOpenPath: openPathInVscode, onPickDirectory: pickDirectoryInVscode,
+      onSessionPrompt: () => { if (applyDiff) applyDiff.armTurnWindow(); },
+      logger: log,
     }).start();
     proxy.requestedBaseUrl = requested;
     proxy.probeRange = [...probeRange];
@@ -233,6 +237,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   bindEditorContext(editorContext, vscode);
+  applyDiff = createApplyDiff(vscode);
 
   try {
     await restartProxy().catch((err) => vscode.window.showErrorMessage(
@@ -248,4 +253,5 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
 export async function deactivate(): Promise<void> {
   if (proxy) { await proxy.close().catch(() => {}); proxy = null; }
+  if (applyDiff) { applyDiff.dispose(); }
 }
