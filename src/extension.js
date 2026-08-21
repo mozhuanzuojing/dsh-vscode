@@ -15,6 +15,7 @@ let moveTimer = null;
 
 /** 串行化代理重启队列，防止并发配置变更导致 double-close / 泄漏。 */
 let restartQueue = Promise.resolve(null);
+let promptInProgress = false; // 防止多次点击配置按钮/侧边栏打开并发弹多个输入框
 
 function log(level, message) {
   if (!output) return;
@@ -31,6 +32,17 @@ function getCfg() {
 function getBaseUrl() {
   return getCfg().get('baseUrl', DEFAULT_BASE_URL);
 }
+
+/** 规范化 harness 地址：去掉首尾空格、补 http://、校验格式。非法时返回 null。 */
+function normalizeBaseUrl(raw) {
+  if (typeof raw !== 'string') return null;
+  let url = raw.trim();
+  if (url === '') return null;
+  if (!/^https?:\/\//i.test(url)) url = 'http://' + url;
+  try { return new URL(url).href; } catch { return null; }
+}
+
+/** 解析最终 harness 地址：显式配置>直接使用；否则默认3080连不上则自动检测真实监听端口。 */
 
 /** 用户是否显式配置过 baseUrl（是则尊重，不做自动扫描）。 */
 function isBaseUrlExplicit() {
@@ -53,9 +65,14 @@ function shouldAutoMoveToSecondarySidebar() {
 /** 解析最终 harness 地址：显式配置>直接使用；否则默认3080连不上则自动检测真实监听端口。 */
 async function resolveHarnessBaseUrl() {
   const requested = getBaseUrl();
-  if (isBaseUrlExplicit()) return { url: requested, requested, detected: true, reason: 'explicit config' };
+  // 显式配置：规范化后直接用（合法）；非法则回退默认并告警，避免 createProxy 的 new URL 抛错
+  if (isBaseUrlExplicit()) {
+    const url = normalizeBaseUrl(requested);
+    if (url) return { url, requested, detected: true, reason: 'explicit config' };
+    log('warn', `baseUrl 配置非法（${requested}），回退默认 ${DEFAULT_BASE_URL}`);
+  }
   const res = await detectHarnessUrl({
-    preferred: requested,
+    preferred: normalizeBaseUrl(requested) || DEFAULT_BASE_URL,
     range: getProbeRange(),
     log,
   });
@@ -149,22 +166,31 @@ async function isHarnessReachable(url) {
 /** 打开侧边栏时若 harness 不可达，弹输入框补录地址；确认后持久化到 awakening.dsh.baseUrl。
  *  取消→返回 null；探测不是 DSH→报错并最多重试一次；仍失败→返回 null。 */
 async function promptAndPersistHarnessUrl() {
-  const DEFAULT_SUGGEST = 'http://localhost:';
-  const ask = () => vscode.window.showInputBox({
-    prompt: '未自动检测到 DSH harness。请输入 harness Web 服务地址（本地默认 http://localhost:<port>）。',
-    value: DEFAULT_SUGGEST,
-    placeHolder: 'http://localhost:3082',
-    valueSelection: [DEFAULT_SUGGEST.length, DEFAULT_SUGGEST.length],
-    ignoreFocusOut: true,
-  });
+  if (promptInProgress) { // 防并发：多个入口同时触发时只弹一个
+    log('info', '配置弹窗已在打开，忽略重复触发');
+    return null;
+  }
+  promptInProgress = true;
+  try {
+    const DEFAULT_SUGGEST = 'http://localhost:';
+    // 重试时保留用户上次输入（只补首测默认值）
+    let lastValue;
+    const ask = () => vscode.window.showInputBox({
+      prompt: '未自动检测到 DSH harness。请输入 harness Web 服务地址（本地默认 http://localhost:<port>）。',
+      value: lastValue === undefined ? DEFAULT_SUGGEST : lastValue,
+      placeHolder: 'http://localhost:3082',
+      valueSelection: [DEFAULT_SUGGEST.length, DEFAULT_SUGGEST.length],
+      ignoreFocusOut: true,
+    });
 
-  let entered;
-  for (let attempt = 0; ; attempt++) {
-    entered = await ask();
-    if (entered === undefined) {
-      log('info', '用户取消 harness 地址录入');
-      return null;
-    }
+    let entered;
+    for (let attempt = 0; ; attempt++) {
+      entered = await ask();
+      if (entered === undefined) {
+        log('info', '用户取消 harness 地址录入');
+        return null;
+      }
+      lastValue = entered;
     let url = entered.trim();
     if (!/^https?:\/\//i.test(url)) url = 'http://' + url;
     try { new URL(url); } catch {
@@ -185,12 +211,18 @@ async function promptAndPersistHarnessUrl() {
       await restartProxy().catch((err) => vscode.window.showErrorMessage('DSH Client: 应用新地址时代理重启失败 ' + err.message));
       return url;
     }
-    vscode.window.showErrorMessage('DSH Client: ' + url + ' 不是可用的 DSH 服务（判据 __DSH_BOOT__ 未命中），请重试。');
-    if (attempt >= 1) {
-      vscode.window.showInformationMessage('DSH Client: 未配置成功，可在设置 awakening.dsh.baseUrl 中手动填写，或稍后再试。');
+      vscode.window.showErrorMessage('DSH Client: ' + url + ' 不是可用的 DSH 服务（判据 __DSH_BOOT__ 未命中），请重试。');
+      if (attempt >= 1) {
+        vscode.window.showInformationMessage('DSH Client: 未配置成功，可在设置 awakening.dsh.baseUrl 中手动填写，或稍后再试。');
+        return null;
+      }
+    } // end for loop
+    } catch (err) {
+      log('warn', '配置 harness 地址过程异常: ' + err.message);
       return null;
+    } finally {
+      promptInProgress = false;
     }
-  }
 }
 
 async function openSidebar() {
@@ -204,7 +236,7 @@ async function openSidebar() {
   } catch { /* 视图尚未解析 */ }
   await moveViewToSecondarySidebar();
   // 打开侧边栏时若 harness 不可达，再弹窗补录（不在激活时打扰）
-  if (proxy && !(await isHarnessReachable(proxy.baseUrl))) {
+  if ((!proxy || !(await isHarnessReachable(proxy.baseUrl))) && !promptInProgress) {
     await promptAndPersistHarnessUrl();
   }
 }
@@ -286,15 +318,7 @@ async function activate(context) {
     })
   );
 
-  // 先起代理，再注册视图（避免 iframe 拿到空 origin）
-  try {
-    await restartProxy();
-  } catch (err) {
-    vscode.window.showErrorMessage(
-      `DSH Client: 代理启动失败（${err.message}）。请确认 harness 在 ${getBaseUrl()} 运行，或修改设置 awakening.dsh.baseUrl。`
-    );
-  }
-
+  // 先注册视图（代理未就绪时显示占位），再启动代理——端口扫描可能耗时，不能让激活卡在它前面
   provider = new DshViewProvider({
     getOrigin: () => (proxy ? proxy.origin : ''),
     logger: log,
@@ -304,6 +328,12 @@ async function activate(context) {
       webviewOptions: { retainContextWhenHidden: true },
     })
   );
+
+  try {
+    await restartProxy().catch((err) => vscode.window.showErrorMessage(
+      `DSH Client: 代理启动失败（${err.message}）。请确认 harness 在 ${getBaseUrl()} 运行，或修改设置 awakening.dsh.baseUrl。`
+    ));
+  } catch { /* 已在 catch 里提示；restartProxy 自身异常时不再重复 */ }
 
   // 视图创建后自动移入辅助侧边栏（可拖回主侧栏）
   if (shouldAutoMoveToSecondarySidebar()) {
