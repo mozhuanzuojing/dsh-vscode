@@ -20,6 +20,7 @@ interface OpenDoc { uri: vscode.Uri; isDirty: boolean; }
 export function createApplyDiff(vscodeRef: typeof vscode, options: ApplyDiffOptions = {}): ApplyDiff {
   const log = options.log || ((_l: string, _m: string) => {});
   let armUntil = 0;
+  let disposed = false;
   let timer: ReturnType<typeof setTimeout> | undefined;
 
   function openDirtyMap(): Map<string, OpenDoc> {
@@ -43,15 +44,16 @@ export function createApplyDiff(vscodeRef: typeof vscode, options: ApplyDiffOpti
     log('info', '已同步磁盘改动到编辑器: ' + fsPath);
   }
 
-  const watcher = vscodeRef.workspace.createFileSystemWatcher('**/*', false, true, false);
+  const watcher = vscodeRef.workspace.createFileSystemWatcher('**/*', true, false, true);
   watcher.onDidChange((uri) => { if (Date.now() < armUntil && uri.scheme === 'file') revertIfSafe(uri.fsPath); });
 
   function armTurnWindow(durationMs = 30000): void {
+    if (disposed) return;
     armUntil = Date.now() + durationMs;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => { armUntil = 0; }, durationMs + 500);
     log('info', '应用 diff 窗口已开启（' + durationMs + 'ms）');
   }
 
-  return { armTurnWindow, dispose: () => { if (timer) clearTimeout(timer); watcher.dispose(); } };
+  return { armTurnWindow, dispose: () => { disposed = true; if (timer) clearTimeout(timer); watcher.dispose(); } };
 }
