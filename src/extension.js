@@ -31,7 +31,7 @@ const prompt = createPrompt({
   persistUrl: async (url) => {
     await config.updateBaseUrl(url, vscode.ConfigurationTarget.Global);
     if (config.hasScopeOverride()) {
-      vscode.window.showWarningMessage('DSH Client: 当前 workspace/文件夹层级的 awakening.dsh.baseUrl 会覆盖此处保存的全局值，请在设置中确认实际生效地址。');
+      await vscode.window.showWarningMessage('DSH Client: 当前 workspace/文件夹层级的 awakening.dsh.baseUrl 会覆盖此处保存的全局值，请在设置中确认实际生效地址。');
     }
   },
   restartProxy: () => restartProxy(),

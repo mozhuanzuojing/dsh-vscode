@@ -30,6 +30,9 @@ const cfgNoOverride = createConfig(() => ({ get: () => {}, inspect: () => ({}), 
 check('hasScopeOverride false', cfgNoOverride.hasScopeOverride() === false);
 const cfgWithOverride = createConfig(() => ({ get: () => {}, inspect: () => ({ workspaceValue: 'http://override:8080' }), update: async () => {} }));
 check('hasScopeOverride true', cfgWithOverride.hasScopeOverride() === true);
+const cfgFolderOverride = createConfig(() => ({ get: () => {}, inspect: () => ({ workspaceFolderValue: 'http://folder:8080' }), update: async () => {} }));
+check('hasScopeOverride workspaceFolderValue', cfgFolderOverride.hasScopeOverride() === true);
+
 
 
 // ---- prompt 模块 ----
