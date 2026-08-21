@@ -41,7 +41,7 @@
 
 ## 快速开始
 
-前置：harness 正在运行（默认端口 `http://127.0.0.1:3080`，自动检测真实监听端口；若显式设置 `dsh.baseUrl` 则优先使用）。
+前置：harness 正在运行（默认端口 `http://127.0.0.1:3080`，自动检测真实监听端口；若显式设置 `awakening.dsh.baseUrl` 则优先使用）。
 
 ```bash
 cd dsh-vscode
@@ -54,7 +54,7 @@ npm run smoke      # 代理冒烟（对运行中的 harness 验证转发/拦截/
 1. 打开本目录
 2. 按 F5 启动「扩展开发宿主」（`.vscode/launch.json` 已配好）
 3. 点击左侧 Activity Bar 的 DSH 图标（或编辑器右上角黑鲸按钮）→ 辅助侧边栏打开原版界面
-4. 若 harness 端口不在默认检测范围（3080–3099），设 `dsh.baseUrl` 显式指定（修改后代理自动重启）
+4. 若 harness 端口不在默认检测范围（3080–3099），设 `awakening.dsh.baseUrl` 显式指定（修改后代理自动重启）
 
 ### 安装打包产物
 
@@ -71,14 +71,17 @@ code --install-extension dsh-vscode-0.1.0.vsix   # 或在扩展面板 → … �
 
 | 设置 | 默认 | 说明 |
 | --- | --- | --- |
-| `dsh.baseUrl` | `http://127.0.0.1:3080` | harness Web 服务地址（默认 3080，自动检测真实端口；显式设置后优先使用） |
-| `dsh.interceptPickDirectory` | `true` | 拦截 `host.pickDirectory` 并在 VSCode 弹原生目录选择器（Cursor 同款）；关闭后原样转发给 harness 宿主弹它自己的对话框（跨机拓扑降级路径） |
+| `awakening.dsh.baseUrl` | `http://127.0.0.1:3080` | harness Web 服务地址（默认 3080，自动检测真实端口；显式设置后优先使用） |
+| `awakening.dsh.interceptPickDirectory` | `true` | 拦截 `host.pickDirectory` 并在 VSCode 弹原生目录选择器（Cursor 同款）；关闭后原样转发给 harness 宿主弹它自己的对话框（跨机拓扑降级路径） |
+| `awakening.dsh.probeRange` | `[3080, 3099]` | 自动检测端口时扫描的 TCP 端口范围（含两端） |
+| `awakening.dsh.autoMoveToSecondarySidebar` | `true` | 激活时自动把视图移入辅助侧边栏；`false` 则留在主侧边栏（改后重载窗口） |
 
 ## 命令
 
 | 命令 | 作用 |
 | --- | --- |
 | Open DSH Sidebar | 聚焦 DSH 视图（辅助侧边栏） |
+| Awakening: 打开设置 | 打开本扩展的 VS Code 设置页（配置入口） |
 | DSH: 刷新界面 | 重新加载 iframe |
 | DSH: 诊断 | 显示代理端口、harness 可达性、HTTP/WS/openPath/pickDirectory 计数 |
 | DSH: 在浏览器打开原版界面 | 系统浏览器打开 harness，与侧边栏对照 |
@@ -112,7 +115,7 @@ dsh-vscode/
 
 - **硬前置条件：VSCode 与 harness 共享同一文件系统。** `host.openPath` / `host.pickDirectory` 返回的路径（`Uri.fsPath`）会被 harness 直接用于打开文件、`workspace.create` 与会话 cwd；路径必须对 harness 可见。当前默认拓扑（VSCode Remote-WSL / WSL 内运行）天然满足。
 - **不做自动路径转换**：不把 Windows 路径转成 `\\wsl.localhost\...` 或 WSL 内路径——跨机器场景无法可靠自动转换（转换只在「harness 恰好就在该 WSL 里」时成立），制造隐式错误不如显式报错（harness 会以 `workspace-invalid-path` 拒绝）。
-- **跨机拓扑降级开关**：违反硬前置时把 `dsh.interceptPickDirectory` 设为 `false`，目录选择回到 harness 宿主原生对话框（对话框出现在 harness 机器上，路径语义天然正确）。
+- **跨机拓扑降级开关**：违反硬前置时把 `awakening.dsh.interceptPickDirectory` 设为 `false`，目录选择回到 harness 宿主原生对话框（对话框出现在 harness 机器上，路径语义天然正确）。
 - **浏览型目录选择器（browse）原样保留**：iframe 内文件树走 `host.listDirectory/createDirectory`，不经拦截，两种选择方式并存。
 - 主题跟随 harness 自身设置（原版界面的主题），不随 VSCode 主题变化。
 - webview 环境对 WS 的策略以真机为准：若 iframe 内事件流不更新，执行 `DSH: 诊断` 查看 WS 计数。
@@ -128,7 +131,7 @@ dsh-vscode/
 - **判定**：白屏 = iframe 没拿到 harness 首页；`不可达` = 代理到 harness 的连接断；`代理未启动` = 扩展宿主里代理起失败（多半在 `代理启动失败` 弹出时能看到，或看输出面板 "DSH Client"）。
 - **修复**
   1. 确认 harness 正在 `dsh web` 运行（`DSH: 在浏览器打开原版界面` 能打开就是好的）。
-  2. 若默认 3080 连不上，扩展应已自动扫 [3080,3099]（`端口检测` 行会标 `自动检测到...`）；仍不可达就手动设 `dsh.baseUrl`。
+  2. 若默认 3080 连不上，扩展应已自动扫 [3080,3099]（`端口检测` 行会标 `自动检测到...`）；仍不可达就手动设 `awakening.dsh.baseUrl`。
   3. 关掉再开侧边栏，或执行 `DSH: 刷新界面` 重挂 iframe。
 
 ### 2. 发消息后界面不更新（事件流不动）
@@ -150,14 +153,14 @@ dsh-vscode/
 - **现象**：点目录按钮没弹出 VSCode 原生选择器，或弹到了 harness 所在机器的系统对话框。
 - **诊断观察**：`pickDirectory 拦截` 是 `开` 还是 `关`；计数有没有 +1。
 - **判定**：`关`＝ 关闭了拦截，转发给 harness 宿主弹系统对话框（这是设计）—— 改成 `开` 即本机弹；`开` 但没 +1 ＝ 请求没到代理或 UI 走的是浏览型文件树。
-- **修复**：设 `dsh.interceptPickDirectory=true` 并看看是否走 native 入口（浏览型 browse 树本来就显示在 iframe 内，不算弹框）。
+- **修复**：设 `awakening.dsh.interceptPickDirectory=true` 并看看是否走 native 入口（浏览型 browse 树本来就显示在 iframe 内，不算弹框）。
 
 ### 5. 打开窗口时弹"代理启动失败"
 
 - **现象**：VS Code 底部提示 `DSH Client: 代理启动失败（...）`。
 - **诊断观察**：错误文案里 502/ECONNREFUSED/ECONNRESET 等；`端口检测` 行。
-- **判定**：多数是启动瞬间 harness 还没起来，或 `dsh.baseUrl` 指向连不上的地址。
-- **修复**：确认 harness 在跑后，执行 `DSH: 刷新界面`/重载窗口；或把 `dsh.baseUrl` 改成唯一确定可达的地址。
+- **判定**：多数是启动瞬间 harness 还没起来，或 `awakening.dsh.baseUrl` 指向连不上的地址。
+- **修复**：确认 harness 在跑后，执行 `DSH: 刷新界面`/重载窗口；或把 `awakening.dsh.baseUrl` 改成唯一确定可达的地址。
 
 ### 6. `WebSocket 透传` 失败很多 / 一直是 0
 
@@ -171,4 +174,4 @@ dsh-vscode/
 - **现象**：`端口检测` 显示"未检测到，用默认 3080"，其实 dsh 在某个端口监听（如 3999）。
 - **诊断观察**：`端口检测` 行的"未检测到" + 采集范围 [3080,3099]。
 - **判定**：探测范围有限（默认 3080-3099，判据为首页含 `__DSH_BOOT__`）；端口落范围外就扫不到。
-- **修复**：手动设 `dsh.baseUrl` 到真实地址（显式配置优先，不做自动扫描）；若希望扩大检测范围，改 `HARNESS_PROBE_RANGE` 后重跑。
+- **修复**：手动设 `awakening.dsh.baseUrl` 到真实地址（显式配置优先，不做自动扫描）；或调大 `awakening.dsh.probeRange` 扩大检测范围后重跑。

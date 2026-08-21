@@ -5,7 +5,7 @@ const { DshViewProvider } = require('./view');
 const { detectHarnessUrl } = require('./detect');
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:3080';
-const HARNESS_PROBE_RANGE = [3080, 3099]; // 含 dsh 默认 3082
+const DEFAULT_PROBE_RANGE = [3080, 3099]; // 含 dsh 默认 3082
 
 let proxy = null;
 let provider = null;
@@ -23,14 +23,31 @@ function log(level, message) {
   console.log(`[dsh-client] ${line}`);
 }
 
-function getBaseUrl() {
-  return vscode.workspace.getConfiguration('dsh').get('baseUrl', DEFAULT_BASE_URL);
+/** 配置读取统一走 awakening.dsh 命名空间。 */
+function getCfg() {
+  return vscode.workspace.getConfiguration('awakening.dsh');
 }
 
-/** 用户是否显式配置过 dsh.baseUrl（是则尊重，不做自动扫描）。 */
+function getBaseUrl() {
+  return getCfg().get('baseUrl', DEFAULT_BASE_URL);
+}
+
+/** 用户是否显式配置过 baseUrl（是则尊重，不做自动扫描）。 */
 function isBaseUrlExplicit() {
-  const inspected = vscode.workspace.getConfiguration('dsh').inspect('baseUrl');
+  const inspected = getCfg().inspect('baseUrl');
   return !!(inspected && (inspected.globalValue !== undefined || inspected.workspaceValue !== undefined || inspected.workspaceFolderValue !== undefined));
+}
+
+/** 自动检测端口范围（awakening.dsh.probeRange）。 */
+function getProbeRange() {
+  const cfg = getCfg().get('probeRange', DEFAULT_PROBE_RANGE);
+  if (Array.isArray(cfg) && cfg.length === 2 && typeof cfg[0] === 'number' && typeof cfg[1] === 'number' && cfg[0] <= cfg[1]) return cfg;
+  log('warn', `probeRange 配置非法，回退 ${DEFAULT_PROBE_RANGE.join('-')}`);
+  return DEFAULT_PROBE_RANGE;
+}
+
+function shouldAutoMoveToSecondarySidebar() {
+  return getCfg().get('autoMoveToSecondarySidebar', true);
 }
 
 /** 解析最终 harness 地址：显式配置>直接使用；否则默认3080连不上则自动检测真实监听端口。 */
@@ -39,14 +56,14 @@ async function resolveHarnessBaseUrl() {
   if (isBaseUrlExplicit()) return { url: requested, requested, detected: true, reason: 'explicit config' };
   const res = await detectHarnessUrl({
     preferred: requested,
-    range: HARNESS_PROBE_RANGE,
+    range: getProbeRange(),
     log,
   });
   return { url: res.url, requested, detected: res.detected, reason: res.reason };
 }
 
 function isPickDirectoryIntercepted() {
-  return vscode.workspace.getConfiguration('dsh').get('interceptPickDirectory', true);
+  return getCfg().get('interceptPickDirectory', true);
 }
 
 async function openPathInVscode(filePath) {
@@ -64,6 +81,11 @@ async function pickDirectoryInVscode() {
   return picked && picked.length > 0 ? picked[0].fsPath : null;
 }
 
+/** 数组相等（用于配置防重键）。 */
+function arraysEqual(a, b) {
+  return Array.isArray(a) && Array.isArray(b) && a.length === b.length && a.every((v, i) => v === b[i]);
+}
+
 async function restartProxy() {
   // 入队：保证同一时刻最多一个重建在进行
   const prev = restartQueue;
@@ -72,8 +94,9 @@ async function restartProxy() {
     try { await prev; } catch { /* 前一个失败不影响本请求 */ }
     const interceptPickDirectory = isPickDirectoryIntercepted();
     const requested = getBaseUrl();
-    // 以「请求的 baseUrl」为防重键（解析后的 detected 端口是内部细节，避免无关重建）
-    if (proxy && proxy.requestedBaseUrl === requested && proxy.interceptPickDirectory === interceptPickDirectory) return proxy;
+    const probeRange = getProbeRange();
+    // 防重键：请求 baseUrl + 拦截开关 + 探测范围（解析出的端口是内部细节，避免无关重建）
+    if (proxy && proxy.requestedBaseUrl === requested && proxy.interceptPickDirectory === interceptPickDirectory && arraysEqual(proxy.probeRange, probeRange)) return proxy;
     if (proxy) {
       await proxy.close().catch((err) => log('warn', `关闭旧代理: ${err.message}`));
       proxy = null;
@@ -87,6 +110,7 @@ async function restartProxy() {
       logger: log,
     }).start();
     proxy.requestedBaseUrl = requested;
+    proxy.probeRange = probeRange;
     proxy.detectedBaseUrl = resolved.detected;
     proxy.detectedReason = resolved.reason;
     log('info', `代理就绪: ${proxy.origin} -> ${resolved.url}（请求 ${requested}，${resolved.reason}）`);
@@ -106,6 +130,15 @@ async function moveViewToSecondarySidebar() {
     await vscode.commands.executeCommand('workbench.action.moveViewToSecondarySidebar', 'dsh.chatView');
   } catch (err) {
     log('warn', `移动到辅助侧边栏失败: ${err.message}`);
+  }
+}
+
+/** 打开本扩展的 VS Code 设置页（作为「配置入口」）。 */
+async function openSettings() {
+  try {
+    await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:local.dsh-vscode');
+  } catch (err) {
+    log('warn', `打开设置失败: ${err.message}`);
   }
 }
 
@@ -148,7 +181,6 @@ async function showDiagnostics() {
     { label: 'harness 地址', description: `${used} — ${reachable}` },
     { label: '端口检测', description: descriptionOfPortDetection(proxy, requested) },
     { label: 'HTTP 转发', description: String(s.httpRequests) },
-    { label: 'HTTP 转发', description: String(s.httpRequests) },
     { label: 'openPath 拦截', description: String(s.openPathCalls) },
     { label: 'pickDirectory 拦截', description: `${proxy && proxy.interceptPickDirectory ? '开' : '关'} · ${s.pickDirectoryCalls} 次` },
     { label: 'WebSocket 透传', description: `${s.wsConnections} 连接 / ${s.wsFailures} 失败` },
@@ -174,12 +206,13 @@ async function activate(context) {
     vscode.commands.registerCommand('dsh.diagnostics', showDiagnostics),
     vscode.commands.registerCommand('dsh.openInBrowser', () => {
       vscode.env.openExternal(vscode.Uri.parse(getBaseUrl()));
-    })
+    }),
+    vscode.commands.registerCommand('awakening.openSettings', openSettings)
   );
 
   context.subscriptions.push(
     vscode.workspace.onDidChangeConfiguration((event) => {
-      if (event.affectsConfiguration('dsh.baseUrl') || event.affectsConfiguration('dsh.interceptPickDirectory')) {
+      if (event.affectsConfiguration('awakening.dsh')) {
         restartProxy().catch((err) => vscode.window.showErrorMessage(`DSH Client: 代理重启失败 ${err.message}`));
       }
     })
@@ -190,7 +223,7 @@ async function activate(context) {
     await restartProxy();
   } catch (err) {
     vscode.window.showErrorMessage(
-      `DSH Client: 代理启动失败（${err.message}）。请确认 harness 在 ${getBaseUrl()} 运行，或修改设置 dsh.baseUrl。`
+      `DSH Client: 代理启动失败（${err.message}）。请确认 harness 在 ${getBaseUrl()} 运行，或修改设置 awakening.dsh.baseUrl。`
     );
   }
 
@@ -205,7 +238,9 @@ async function activate(context) {
   );
 
   // 视图创建后自动移入辅助侧边栏（可拖回主侧栏）
-  moveTimer = setTimeout(() => { moveViewToSecondarySidebar(); }, 1200);
+  if (shouldAutoMoveToSecondarySidebar()) {
+    moveTimer = setTimeout(() => { moveViewToSecondarySidebar(); }, 1200);
+  }
   context.subscriptions.push({ dispose: () => clearTimeout(moveTimer) });
 }
 

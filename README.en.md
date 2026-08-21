@@ -41,7 +41,7 @@ Embed the original DeepSeek Harness (DSH) Web interface in the VS Code secondary
 
 ## Quick start
 
-Prerequisite: the harness is running (default port `http://127.0.0.1:3080`, with automatic detection of the real listening port; if you set `dsh.baseUrl` explicitly it takes priority).
+Prerequisite: the harness is running (default port `http://127.0.0.1:3080`, with automatic detection of the real listening port; if you set `awakening.dsh.baseUrl` explicitly it takes priority).
 
 ```bash
 cd dsh-vscode
@@ -54,7 +54,7 @@ Then in VS Code:
 1. Open this directory
 2. Press F5 to launch the "Extension Development Host" (`.vscode/launch.json` is preconfigured)
 3. Click the DSH icon in the Activity Bar (or the whale button in the editor title) → the original UI opens in the secondary sidebar
-4. If the harness port is outside the default detection range (3080-3099), set `dsh.baseUrl` explicitly (the proxy restarts automatically on change)
+4. If the harness port is outside the default detection range (3080-3099), set `awakening.dsh.baseUrl` explicitly (the proxy restarts automatically on change)
 
 ### Installing the packaged build
 
@@ -71,14 +71,17 @@ Settings:
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `dsh.baseUrl` | `http://127.0.0.1:3080` | Harness web service URL (default 3080, auto-detects the real port; explicit setting takes priority) |
-| `dsh.interceptPickDirectory` | `true` | Intercept `host.pickDirectory` and show the native VS Code folder picker (Cursor-like); when `false`, forwards it to the harness host to show its own dialog (fallback for cross-machine setups) |
+| `awakening.dsh.baseUrl` | `http://127.0.0.1:3080` | Harness web service URL (default 3080, auto-detects the real port; explicit setting takes priority) |
+| `awakening.dsh.interceptPickDirectory` | `true` | Intercept `host.pickDirectory` and show the native VS Code folder picker (Cursor-like); when `false`, forwards it to the harness host to show its own dialog (fallback for cross-machine setups) |
+| `awakening.dsh.probeRange` | `[3080, 3099]` | TCP port range to scan when auto-detecting the port (inclusive) |
+| `awakening.dsh.autoMoveToSecondarySidebar` | `true` | Auto-move the view to the secondary sidebar on activation; `false` keeps it in the primary sidebar (needs window reload) |
 
 ## Commands
 
 | Command | Description |
 | --- | --- |
 | Open DSH Sidebar | Focus the DSH view (secondary sidebar) |
+| Awakening: 打开设置 | Open this extension's VS Code settings page (config entry) |
 | DSH: 刷新界面 | Reload the iframe |
 | DSH: 诊断 | Show proxy port, harness reachability, HTTP/WS/openPath/pickDirectory counts |
 | DSH: 在浏览器打开原版界面 | Open the original harness in the system browser for comparison |
@@ -112,7 +115,7 @@ dsh-vscode/
 
 - **Hard prerequisite: VS Code and the harness share the same filesystem.** Paths returned by `host.openPath` / `host.pickDirectory` (`Uri.fsPath`) are used directly by the harness to open files, run `workspace.create`, and set the session cwd; the path must be visible to the harness. The default topology (VS Code Remote-WSL / running inside WSL) satisfies this naturally.
 - **No automatic path conversion**: Windows paths are not converted to `\\wsl.localhost\...` or WSL-internal paths — cross-machine conversion cannot be done reliably (it only holds when the harness happens to be in that same WSL), so failing explicitly is better than a silent wrong path (the harness rejects it with `workspace-invalid-path`).
-- **Cross-machine fallback switch**: when the hard prerequisite is violated, set `dsh.interceptPickDirectory` to `false`; directory picking returns to the harness host's native dialog (shown on the harness machine, so path semantics are correct).
+- **Cross-machine fallback switch**: when the hard prerequisite is violated, set `awakening.dsh.interceptPickDirectory` to `false`; directory picking returns to the harness host's native dialog (shown on the harness machine, so path semantics are correct).
 - **The browse directory picker is preserved**: the in-iframe file tree uses `host.listDirectory/createDirectory`, not intercepted; both picking styles coexist.
 - Theme follows the harness's own settings (the original UI's theme), not the VS Code theme.
 - Webview WS behavior is subject to the real machine: if the event stream in the iframe does not update, run `DSH: 诊断` and check the WS count.
@@ -128,7 +131,7 @@ dsh-vscode/
 - **Diagnosis**: blank iframe = the harness homepage did not load; `不可达` = proxy-to-harness connection down; `未启动` = the proxy failed in the extension host (see the `DSH Client` output channel / the `代理启动失败` popup).
 - **Fix**
   1. Make sure the harness is running (`DSH: 在浏览器打开原版界面` opening proves it).
-  2. If default 3080 is not reachable, the extension auto-scans [3080,3099] (`端口检测` row will show `自动检测到...`); if still unreachable, set `dsh.baseUrl` manually.
+  2. If default 3080 is not reachable, the extension auto-scans [3080,3099] (`端口检测` row will show `自动检测到...`); if still unreachable, set `awakening.dsh.baseUrl` manually.
   3. Close/reopen the sidebar, or run `DSH: 刷新界面` to remount the iframe.
 
 ### 2. UI does not update after sending a message
@@ -150,14 +153,14 @@ dsh-vscode/
 - **Symptom**: no VS Code native picker, or the harness machine's OS dialog appears instead.
 - **Watch**: is `pickDirectory 拦截` `开` or `关`? Did the count +1?
 - **Diagnosis**: `关` = interception disabled, forwarded to the harness host (by design) — set it to `开` to pick locally; `开` but no +1 = request did not reach the proxy or the UI used the browse file tree.
-- **Fix**: set `dsh.interceptPickDirectory=true` and use the native entry (the browse tree renders inside the iframe; it is not a dialog).
+- **Fix**: set `awakening.dsh.interceptPickDirectory=true` and use the native entry (the browse tree renders inside the iframe; it is not a dialog).
 
 ### 5. "Proxy failed to start" popup on window open
 
 - **Symptom**: VS Code shows `DSH Client: 代理启动失败（...）`.
 - **Watch**: the error text (502 / ECONNREFUSED / ECONNRESET ...) and the `端口检测` row.
-- **Diagnosis**: usually the harness was not up yet at startup, or `dsh.baseUrl` points somewhere unreachable.
-- **Fix**: after the harness is confirmed running, run `DSH: 刷新界面` / reload the window; or set `dsh.baseUrl` to a definitely-reachable URL.
+- **Diagnosis**: usually the harness was not up yet at startup, or `awakening.dsh.baseUrl` points somewhere unreachable.
+- **Fix**: after the harness is confirmed running, run `DSH: 刷新界面` / reload the window; or set `awakening.dsh.baseUrl` to a definitely-reachable URL.
 
 ### 6. `WebSocket 透传` shows many failures / stays at 0
 
@@ -171,4 +174,4 @@ dsh-vscode/
 - **Symptom**: `端口检测` shows "not detected, using default 3080" although dsh is listening somewhere (e.g. 3999).
 - **Watch**: the scan range [3080,3099] and the "not detected" message.
 - **Diagnosis**: the probe range is limited (3080-3099, marker `__DSH_BOOT__` in the homepage); an out-of-range port is not found.
-- **Fix**: set `dsh.baseUrl` to the real address explicitly (explicit config takes priority, no scanning); to widen detection, change `HARNESS_PROBE_RANGE` and rebuild.
+- **Fix**: set `awakening.dsh.baseUrl` to the real address explicitly (explicit config takes priority, no scanning); or widen `awakening.dsh.probeRange` to scan a larger port range.

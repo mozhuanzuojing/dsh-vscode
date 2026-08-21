@@ -50,6 +50,11 @@
         "command": "dsh.openInBrowser",
         "title": "DSH: 在浏览器打开原版界面",
         "category": "DSH"
+      },
+      {
+        "command": "awakening.openSettings",
+        "title": "Awakening: 打开设置",
+        "category": "Awakening"
       }
     ],
     "menus": {
@@ -80,17 +85,35 @@
       ]
     },
     "configuration": {
-      "title": "DSH Client",
+      "title": "Awakening DSH",
       "properties": {
-        "dsh.baseUrl": {
+        "awakening.dsh.baseUrl": {
           "type": "string",
           "default": "http://127.0.0.1:3080",
           "description": "DSH harness Web 服务地址（默认 3080，自动检测真实监听端口）。显式修改后优先使用，不做自动检测。修改后自动重启本地代理并刷新界面。"
         },
-        "dsh.interceptPickDirectory": {
+        "awakening.dsh.interceptPickDirectory": {
           "type": "boolean",
           "default": true,
           "description": "拦截 host.pickDirectory 并在 VSCode 里弹原生目录选择器（Cursor 同款体验）。关闭后原样转发给 harness，由 harness 宿主弹它自己的对话框——跨机拓扑（VSCode 与 harness 不共享文件系统）的降级路径。修改后自动重启本地代理。"
+        },
+        "awakening.dsh.probeRange": {
+          "type": "array",
+          "default": [
+            3080,
+            3099
+          ],
+          "items": {
+            "type": "number"
+          },
+          "minItems": 2,
+          "maxItems": 2,
+          "description": "自动检测端口时扫描的 TCP 端口范围 [起始, 终止]（含两端）。修改后自动重启本地代理。"
+        },
+        "awakening.dsh.autoMoveToSecondarySidebar": {
+          "type": "boolean",
+          "default": true,
+          "description": "扩展激活时是否自动将 DSH 视图移入辅助侧边栏（secondary sidebar）。关闭后视图在主侧边栏；可手动拖拽切换。修改后需重载窗口生效。"
         }
       }
     }
