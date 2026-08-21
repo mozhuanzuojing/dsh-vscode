@@ -67,6 +67,7 @@ code --install-extension dsh-vscode-0.1.0.vsix   # or Extensions panel → … �
 ```
 
 > Source & docs: https://github.com/mozhuanzuojing/dsh-vscode
+> Release process (mandatory review gate before verify & publish): [RELEASING.md](RELEASING.md)
 
 Settings:
 

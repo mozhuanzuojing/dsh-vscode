@@ -67,6 +67,7 @@ code --install-extension dsh-vscode-0.1.0.vsix   # 或在扩展面板 → … �
 ```
 
 > 源码与使用文档：https://github.com/mozhuanzuojing/dsh-vscode
+> 发布流程（含强制 Review 门禁）：[RELEASING.md](RELEASING.md)
 
 设置：
 
