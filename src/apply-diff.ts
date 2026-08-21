@@ -49,6 +49,9 @@ export function createApplyDiff(vscodeRef: typeof vscode, options: ApplyDiffOpti
 
   function armTurnWindow(durationMs = 30000): void {
     if (disposed) return;
+    if (!vscodeRef.workspace.workspaceFolders || vscodeRef.workspace.workspaceFolders.length === 0) {
+      log('warn', '未打开工作区文件夹：文件系统监听（**/*）不会生效，② 应用 diff 本窗口不可用');
+    }
     armUntil = Date.now() + durationMs;
     if (timer) clearTimeout(timer);
     timer = setTimeout(() => { armUntil = 0; }, durationMs + 500);
