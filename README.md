@@ -55,6 +55,17 @@ npm run smoke      # 代理冒烟（对运行中的 harness 验证转发/拦截/
 3. 点击左侧 Activity Bar 的 DSH 图标（或编辑器右上角黑鲸按钮）→ 辅助侧边栏打开原版界面
 4. 若 harness 不在 3082 端口，改设置 `dsh.baseUrl`（修改后代理自动重启、界面自动刷新）
 
+### 安装打包产物
+
+不跑源码、直接装成品：
+
+```bash
+npx -y @vscode/vsce package --out dsh-vscode-0.1.0.vsix
+code --install-extension dsh-vscode-0.1.0.vsix   # 或在扩展面板 → … → 从 VSIX 安装…
+```
+
+> 源码与使用文档：https://github.com/mozhuanzuojing/dsh-vscode
+
 设置：
 
 | 设置 | 默认 | 说明 |
