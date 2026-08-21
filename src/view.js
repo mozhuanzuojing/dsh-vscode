@@ -102,10 +102,7 @@ class DshViewProvider {
   #banner .dot.green { background: #3fb950; }
   #banner .dot.orange { background: #d29922; }
   #banner .dot.gray { background: #8b949e; }
-  #banner .b-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #banner .b-label { flex: none; }
-  #banner .b-url { flex: 1 1 auto; }
-  #banner .b-sep { flex: none; opacity: 0.5; }
+  #banner .b-text { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   #frame { position: fixed; top: 26px; left: 0; width: 100%; height: calc(100% - 26px); border: 0; }
   #status {
     position: fixed; top: 26px; left: 0; width: 100%; height: calc(100% - 26px);

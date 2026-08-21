@@ -3,7 +3,7 @@ const vscode = require('vscode');
 const { createProxy } = require('./proxy');
 const { DshViewProvider } = require('./view');
 const { detectHarnessUrl, probe } = require('./detect');
-const { createConfig } = require('./config');
+const { createConfig, DEFAULT_BASE_URL } = require('./config');
 const { createPrompt } = require('./prompt');
 
 const config = createConfig(vscode.workspace.getConfiguration);
@@ -21,7 +21,6 @@ const prompt = createPrompt({
   showInputBox: (opts) => vscode.window.showInputBox({
     prompt: '未自动检测到 DSH harness。请输入 harness Web 服务地址（本地默认 http://localhost:<port>）。',
     placeHolder: 'http://localhost:3082',
-    valueSelection: ['http://localhost:'.length, 'http://localhost:'.length],
     ignoreFocusOut: true,
     ...opts,
   }),
@@ -29,7 +28,7 @@ const prompt = createPrompt({
   showWarning: (msg) => vscode.window.showWarningMessage('DSH Client: ' + msg),
   showInfo: (msg) => vscode.window.showInformationMessage('DSH Client: ' + msg, { modal: false }),
   isReachable: (url) => probe(url, { timeoutMs: 1500 }),
-  persistUrl: (url) => config.updateBaseUrl(url, vscode.ConfigurationTarget.Global),
+  persistUrl: (url) => config.persistBaseUrl(url, { workspace: vscode.ConfigurationTarget.Workspace, global: vscode.ConfigurationTarget.Global }),
   restartProxy: () => restartProxy(),
   log: (lvl, msg) => log(lvl, msg),
 });
@@ -51,7 +50,7 @@ async function resolveHarnessBaseUrl() {
     log('warn', `baseUrl 配置非法（${requested}），回退默认 ${config.getBaseUrl()}`);
   }
   const res = await detectHarnessUrl({
-    preferred: config.normalizeBaseUrl(requested) || 'http://127.0.0.1:3080',
+    preferred: config.normalizeBaseUrl(requested) || DEFAULT_BASE_URL,
     range: config.getProbeRange(),
     log,
   });
@@ -169,7 +168,7 @@ async function showDiagnostics() {
   const used = (proxy && proxy.baseUrl) || requested;
   let reachable = '检测中…';
   try {
-    const res = await fetch(used + '/');
+    const res = await fetch(new URL('/', used).href);
     reachable = `可达 (HTTP ${res.status})`;
   } catch (err) {
     reachable = `不可达: ${err.message}`;

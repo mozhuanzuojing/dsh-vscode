@@ -49,6 +49,12 @@ function createConfig(getConfiguration) {
     updateBaseUrl(url, target) {
       return cfg().update('baseUrl', url, target);
     },
+    /** 持久化 baseUrl 到「当前生效的作用域」：有 workspace/workspaceFolder 覆盖则写那里，否则写 global。 */
+    persistBaseUrl(url, targets) {
+      const inspected = cfg().inspect('baseUrl');
+      const hasWorkspace = !!(inspected && (inspected.workspaceValue !== undefined || inspected.workspaceFolderValue !== undefined));
+      return cfg().update('baseUrl', url, hasWorkspace ? targets.workspace : targets.global);
+    },
   };
 }
 

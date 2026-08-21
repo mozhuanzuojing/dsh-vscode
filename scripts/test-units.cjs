@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 'use strict';
 /* 架构改进后的单元测试：config 模块 + prompt 模块（注入 fake，无需 VS Code）。 */
-const assert = require('node:assert');
 const { createConfig } = require('../src/config');
 const { createPrompt } = require('../src/prompt');
 
@@ -50,21 +49,17 @@ check('getProbeRange 合法保留', JSON.stringify(cfg.getProbeRange()) === '[40
   const r2 = await p2.promptAndPersist();
   check('prompt 取消→null', r2 === null);
 
-  // 场景3：非法格式→重试→成功（重试保留输入）
-  let askCount = 0;
+  // 场景3：非法格式→重试→成功（重试保留上一次输入）
+  let askCount3 = 0;
+  let lastShown3 = '';
   const p3 = createPrompt({
-    showInputBox: async () => { askCount++; return askCount === 1 ? 'not a url' : 'localhost:3082'; },
-    showError: (m) => { if (askCount === 1) calls3.push('err-invalid'); },
-    showWarning: () => {},
-    showInfo: () => {},
-    isReachable: async () => true,
-    persistUrl: async () => {},
-    restartProxy: async () => {},
-    log: () => {},
+    showInputBox: async (opts) => { askCount3++; lastShown3 = opts.value; return askCount3 === 1 ? 'not a url' : 'localhost:3082'; },
+    showError: () => {}, showWarning: () => {}, showInfo: () => {},
+    isReachable: async () => true, persistUrl: async () => {}, restartProxy: async () => {}, log: () => {},
   });
-  const calls3 = [];
   const r3 = await p3.promptAndPersist();
-  check('prompt 重试→成功', r3 === 'http://localhost:3082' && askCount === 2);
+  check('prompt 重试→成功', r3 === 'http://localhost:3082' && askCount3 === 2);
+  check('prompt 重试时第二次输入的 value = 上次输入(not a url)', askCount3 === 2 && lastShown3 === 'not a url');
 
   // 场景4：并发守卫——第二次调用直接 null
   let resolveAsk; const gate = new Promise(r => { resolveAsk = r; });

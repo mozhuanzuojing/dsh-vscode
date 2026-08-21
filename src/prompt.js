@@ -45,12 +45,14 @@ function createPrompt(deps) {
         }
         deps.log && deps.log('info', '录入地址复核: ' + url);
         if (await deps.isReachable(url)) {
+          // 先持久化成功，再重启代理（restartProxy 依 config 防重键判断，若未持久化则无效）
           try {
             await deps.persistUrl(url);
-            deps.showInfo('已确认并保存 harness 地址 ' + url);
           } catch (err) {
-            deps.showWarning('已确认地址 ' + url + '，但保存到设置失败（' + err.message + '）。本次会话仍使用。');
+            deps.showWarning('已确认地址 ' + url + ' 可达，但保存到设置失败（' + err.message + '）；未生效。请重试或到设置 awakening.dsh.baseUrl 手动填写。');
+            return null;
           }
+          deps.showInfo('已确认并保存 harness 地址 ' + url);
           try {
             await deps.restartProxy();
           } catch (err) {
