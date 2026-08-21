@@ -232,6 +232,7 @@ async function showDiagnostics() {
   }
   const s = proxy ? proxy.stats : { httpRequests: 0, openPathCalls: 0, pickDirectoryCalls: 0, wsConnections: 0, wsFailures: 0 };
   const items = [
+    { label: '$(settings-gear) 配置 harness 地址…', description: '打开输入框重新录入并保存（与状态栏/标题栏按钮相同）', kind: vscode.QuickPickItemKind.Default, alwaysShow: true, action: 'configure' },
     { label: '代理端口', description: proxy ? proxy.origin : '未启动' },
     { label: 'harness 地址', description: `${used} — ${reachable}` },
     { label: '端口检测', description: descriptionOfPortDetection(proxy, requested) },
@@ -242,7 +243,10 @@ async function showDiagnostics() {
     { label: '最近打开的文件', description: (proxy && proxy.stats.interceptedPaths.slice(-3).join(' · ')) || '—' },
     { label: '最近选择的目录', description: (proxy && proxy.stats.pickedPaths.slice(-3).join(' · ')) || '—' },
   ];
-  await vscode.window.showQuickPick(items, { title: 'DSH Client 诊断', matchOnDescription: true });
+  const picked = await vscode.window.showQuickPick(items, { title: 'DSH Client 诊断', matchOnDescription: true });
+  if (picked && picked.action === 'configure') {
+    await promptAndPersistHarnessUrl();
+  }
 }
 
 async function activate(context) {
@@ -255,6 +259,14 @@ async function activate(context) {
   statusBar.show();
   context.subscriptions.push(statusBar);
 
+  // 配置入口按钮：随时重新打开「配置 harness 地址」弹窗
+  const configButton = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 99);
+  configButton.text = '$(settings-gear) 配置';
+  configButton.tooltip = 'DSH Client — 录入/修改 harness 地址';
+  configButton.command = 'awakening.configureHarnessUrl';
+  configButton.show();
+  context.subscriptions.push(configButton);
+
   context.subscriptions.push(
     vscode.commands.registerCommand('dsh.openSidebar', openSidebar),
     vscode.commands.registerCommand('dsh.refresh', () => provider && provider.refresh()),
@@ -262,7 +274,8 @@ async function activate(context) {
     vscode.commands.registerCommand('dsh.openInBrowser', () => {
       vscode.env.openExternal(vscode.Uri.parse(getBaseUrl()));
     }),
-    vscode.commands.registerCommand('awakening.openSettings', openSettings)
+    vscode.commands.registerCommand('awakening.openSettings', openSettings),
+    vscode.commands.registerCommand('awakening.configureHarnessUrl', () => promptAndPersistHarnessUrl())
   );
 
   context.subscriptions.push(

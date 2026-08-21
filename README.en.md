@@ -83,6 +83,7 @@ Settings:
 | --- | --- |
 | Open DSH Sidebar | Focus the DSH view (secondary sidebar) |
 | Awakening: 打开设置 | Open this extension's VS Code settings page (config entry) |
+| Awakening: 配置 harness 地址 | Re-open the input box to enter/change the harness URL (status-bar gear, editor title, and diagnostics panel) |
 | DSH: 刷新界面 | Reload the iframe |
 | DSH: 诊断 | Show proxy port, harness reachability, HTTP/WS/openPath/pickDirectory counts |
 | DSH: 在浏览器打开原版界面 | Open the original harness in the system browser for comparison |

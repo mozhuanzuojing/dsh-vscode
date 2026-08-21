@@ -55,6 +55,11 @@
         "command": "awakening.openSettings",
         "title": "Awakening: 打开设置",
         "category": "Awakening"
+      },
+      {
+        "command": "awakening.configureHarnessUrl",
+        "title": "Awakening: 配置 harness 地址",
+        "category": "Awakening"
       }
     ],
     "menus": {
@@ -63,6 +68,11 @@
           "command": "dsh.openSidebar",
           "group": "navigation",
           "icon": "media/icon.svg"
+        },
+        {
+          "command": "awakening.configureHarnessUrl",
+          "group": "navigation",
+          "icon": "$(settings-gear)"
         }
       ]
     },

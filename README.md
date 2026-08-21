@@ -83,6 +83,7 @@ code --install-extension dsh-vscode-0.1.0.vsix   # 或在扩展面板 → … �
 | --- | --- |
 | Open DSH Sidebar | 聚焦 DSH 视图（辅助侧边栏） |
 | Awakening: 打开设置 | 打开本扩展的 VS Code 设置页（配置入口） |
+| Awakening: 配置 harness 地址 | 弹输入框重新录入/修改 harness 地址（状态栏齿轮、编辑器标题栏、诊断面板均可触发） |
 | DSH: 刷新界面 | 重新加载 iframe |
 | DSH: 诊断 | 显示代理端口、harness 可达性、HTTP/WS/openPath/pickDirectory 计数 |
 | DSH: 在浏览器打开原版界面 | 系统浏览器打开 harness，与侧边栏对照 |
