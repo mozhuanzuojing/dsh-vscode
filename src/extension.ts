@@ -177,6 +177,7 @@ async function sendSelectionToDsh(mode: string): Promise<void> {
   const sel = editor && editor.selection && !editor.selection.isEmpty ? editor.selection : null;
   const text = editor && sel ? editor.document.getText(sel) : undefined;
   if (!text) { vscode.window.showWarningMessage('DSH Client: 请先选中一段文本。'); return; }
+  if (applyDiff) applyDiff.armTurnWindow();
   if (!proxy || !proxy.baseUrl || !proxy.lastSessionId) {
     vscode.window.showWarningMessage('DSH Client: 还没有活动的 DSH 会话，请先在 DSH 界面新建/打开会话。');
     return;

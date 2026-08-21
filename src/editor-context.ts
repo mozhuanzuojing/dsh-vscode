@@ -36,7 +36,7 @@ export function bindEditorContext(ctx: EditorContextBarrel, vscode: VscodeLike):
       filePath: doc.uri.fsPath,
       startLine: sel ? sel.start.line + 1 : undefined,
       endLine: sel ? sel.end.line + 1 : undefined,
-      selectionText: sel ? String(doc.getText()) : undefined,
+      selectionText: sel ? doc.getText(sel) : undefined,
     });
   }
   vscode.window.onDidChangeActiveTextEditor(refresh);
