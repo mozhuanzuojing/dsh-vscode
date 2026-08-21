@@ -63,7 +63,7 @@ class DshViewProvider {
     }
     const color = s.detected ? 'green' : 'orange'; // 已定位 harness / 未检测到(回退)
     const port = s.origin ? new URL(s.origin).port : '?';
-    return '<div id="banner"><span class="dot ' + color + '"></span><span class="b-text b-label">DSH :' + port + '</span><span class="b-sep">·</span><span class="b-text b-url">' + s.baseUrl + '</span></div>';
+    return '<div id="banner"><span class="dot ' + color + '"></span><span class="b-text b-label">DSH :' + port + '</span></div>';
   }
 
   renderHtml() {

@@ -37,7 +37,7 @@ Embed the original DeepSeek Harness (DSH) Web interface in the VS Code secondary
 - 🖼️ All original DSH web capabilities: conversations, traces, tool calls, attachments, model selection, permission presets, goals, etc.
 - 📂 Click a file path → opens in VS Code
 - 📁 Directory selection → native VS Code picker (Cursor-like)
-- 🔝 Top banner in the view: reachability dot + proxy port + harness URL
+- 🔝 Top banner in the view: reachability dot + DSH proxy port
 - 🩺 Clicking the status-bar `DSH :port` opens `DSH: 诊断` (port detection page + config entry); `DSH: 在浏览器打开原版界面` opens the original UI in a browser for comparison
 
 ## Quick start
