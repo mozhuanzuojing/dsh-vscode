@@ -41,7 +41,7 @@ Embed the original DeepSeek Harness (DSH) Web interface in the VS Code secondary
 
 ## Quick start
 
-Prerequisite: the harness is running (web service defaults to `http://127.0.0.1:3082`; older default 3080).
+Prerequisite: the harness is running (default port `http://127.0.0.1:3080`, with automatic detection of the real listening port; if you set `dsh.baseUrl` explicitly it takes priority).
 
 ```bash
 cd dsh-vscode
@@ -54,7 +54,7 @@ Then in VS Code:
 1. Open this directory
 2. Press F5 to launch the "Extension Development Host" (`.vscode/launch.json` is preconfigured)
 3. Click the DSH icon in the Activity Bar (or the whale button in the editor title) → the original UI opens in the secondary sidebar
-4. If the harness is not on port 3082, change the `dsh.baseUrl` setting (the proxy restarts and the UI refreshes automatically)
+4. If the harness port is outside the default detection range (3080-3099), set `dsh.baseUrl` explicitly (the proxy restarts automatically on change)
 
 ### Installing the packaged build
 
@@ -71,7 +71,7 @@ Settings:
 
 | Setting | Default | Description |
 | --- | --- | --- |
-| `dsh.baseUrl` | `http://127.0.0.1:3082` | Harness web service URL |
+| `dsh.baseUrl` | `http://127.0.0.1:3080` | Harness web service URL (default 3080, auto-detects the real port; explicit setting takes priority) |
 | `dsh.interceptPickDirectory` | `true` | Intercept `host.pickDirectory` and show the native VS Code folder picker (Cursor-like); when `false`, forwards it to the harness host to show its own dialog (fallback for cross-machine setups) |
 
 ## Commands
@@ -90,6 +90,7 @@ dsh-vscode/
 ├── src/
 │   ├── extension.js   Extension entry: proxy lifecycle, view registration, secondary-sidebar move, status bar, commands
 │   ├── proxy.js       Local reverse proxy: HTTP forwarding, openPath/pickDirectory interception, WebSocket relay (pure Node, independently testable)
+│   ├── detect.js       Auto-detects the harness's real listening port (pure Node, __DSH_BOOT__ marker)
 │   └── view.js        Webview view: iframe + CSP (frame-src) + load-state reporting + refresh
 ├── scripts/
 │   ├── probe.js       Harness protocol probe (root page / RPC envelope / WS downlink)

@@ -41,7 +41,7 @@
 
 ## 快速开始
 
-前置：harness 正在运行（web 服务默认 `http://127.0.0.1:3082`；旧版默认 3080）。
+前置：harness 正在运行（默认端口 `http://127.0.0.1:3080`，自动检测真实监听端口；若显式设置 `dsh.baseUrl` 则优先使用）。
 
 ```bash
 cd dsh-vscode
@@ -54,7 +54,7 @@ npm run smoke      # 代理冒烟（对运行中的 harness 验证转发/拦截/
 1. 打开本目录
 2. 按 F5 启动「扩展开发宿主」（`.vscode/launch.json` 已配好）
 3. 点击左侧 Activity Bar 的 DSH 图标（或编辑器右上角黑鲸按钮）→ 辅助侧边栏打开原版界面
-4. 若 harness 不在 3082 端口，改设置 `dsh.baseUrl`（修改后代理自动重启、界面自动刷新）
+4. 若 harness 端口不在默认检测范围（3080–3099），设 `dsh.baseUrl` 显式指定（修改后代理自动重启）
 
 ### 安装打包产物
 
@@ -71,7 +71,7 @@ code --install-extension dsh-vscode-0.1.0.vsix   # 或在扩展面板 → … �
 
 | 设置 | 默认 | 说明 |
 | --- | --- | --- |
-| `dsh.baseUrl` | `http://127.0.0.1:3082` | harness Web 服务地址 |
+| `dsh.baseUrl` | `http://127.0.0.1:3080` | harness Web 服务地址（默认 3080，自动检测真实端口；显式设置后优先使用） |
 | `dsh.interceptPickDirectory` | `true` | 拦截 `host.pickDirectory` 并在 VSCode 弹原生目录选择器（Cursor 同款）；关闭后原样转发给 harness 宿主弹它自己的对话框（跨机拓扑降级路径） |
 
 ## 命令
@@ -90,6 +90,7 @@ dsh-vscode/
 ├── src/
 │   ├── extension.js       扩展入口：代理生命周期、视图注册、辅助侧边栏移动、状态栏、命令
 │   ├── proxy.js           本地反向代理：HTTP 转发、openPath/pickDirectory 拦截、WebSocket 透传（纯 Node，可独立测试）
+│   ├── detect.js          自动检测 harness 真实监听端口（纯 Node，判据 __DSH_BOOT__）
 │   └── view.js            webview 视图：iframe + CSP(frame-src) + 加载状态上报 + 刷新
 ├── scripts/
 │   ├── probe.js           harness 协议探针（根页面 / RPC 信封 / WS 下行流）

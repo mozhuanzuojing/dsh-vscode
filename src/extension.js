@@ -2,8 +2,10 @@
 const vscode = require('vscode');
 const { createProxy } = require('./proxy');
 const { DshViewProvider } = require('./view');
+const { detectHarnessUrl } = require('./detect');
 
-const DEFAULT_BASE_URL = 'http://127.0.0.1:3082';
+const DEFAULT_BASE_URL = 'http://127.0.0.1:3080';
+const HARNESS_PROBE_RANGE = [3080, 3099]; // 含 dsh 默认 3082
 
 let proxy = null;
 let provider = null;
@@ -23,6 +25,24 @@ function log(level, message) {
 
 function getBaseUrl() {
   return vscode.workspace.getConfiguration('dsh').get('baseUrl', DEFAULT_BASE_URL);
+}
+
+/** 用户是否显式配置过 dsh.baseUrl（是则尊重，不做自动扫描）。 */
+function isBaseUrlExplicit() {
+  const inspected = vscode.workspace.getConfiguration('dsh').inspect('baseUrl');
+  return !!(inspected && (inspected.globalValue !== undefined || inspected.workspaceValue !== undefined || inspected.workspaceFolderValue !== undefined));
+}
+
+/** 解析最终 harness 地址：显式配置>直接使用；否则默认3080连不上则自动检测真实监听端口。 */
+async function resolveHarnessBaseUrl() {
+  const requested = getBaseUrl();
+  if (isBaseUrlExplicit()) return { url: requested, requested, detected: true, reason: 'explicit config' };
+  const res = await detectHarnessUrl({
+    preferred: requested,
+    range: HARNESS_PROBE_RANGE,
+    log,
+  });
+  return { url: res.url, requested, detected: res.detected, reason: res.reason };
 }
 
 function isPickDirectoryIntercepted() {
@@ -50,24 +70,29 @@ async function restartProxy() {
   const next = (async () => {
     // 等前一个重建完成后再处理本请求
     try { await prev; } catch { /* 前一个失败不影响本请求 */ }
-    const baseUrl = getBaseUrl();
     const interceptPickDirectory = isPickDirectoryIntercepted();
-    if (proxy && proxy.baseUrl === baseUrl && proxy.interceptPickDirectory === interceptPickDirectory) return proxy;
+    const requested = getBaseUrl();
+    // 以「请求的 baseUrl」为防重键（解析后的 detected 端口是内部细节，避免无关重建）
+    if (proxy && proxy.requestedBaseUrl === requested && proxy.interceptPickDirectory === interceptPickDirectory) return proxy;
     if (proxy) {
       await proxy.close().catch((err) => log('warn', `关闭旧代理: ${err.message}`));
       proxy = null;
     }
+    const resolved = await resolveHarnessBaseUrl();
     proxy = await createProxy({
-      baseUrl,
+      baseUrl: resolved.url,
       interceptPickDirectory,
       onOpenPath: openPathInVscode,
       onPickDirectory: pickDirectoryInVscode,
       logger: log,
     }).start();
-    log('info', `代理就绪: ${proxy.origin} -> ${baseUrl}`);
+    proxy.requestedBaseUrl = requested;
+    proxy.detectedBaseUrl = resolved.detected;
+    proxy.detectedReason = resolved.reason;
+    log('info', `代理就绪: ${proxy.origin} -> ${resolved.url}（请求 ${requested}，${resolved.reason}）`);
     if (statusBar) {
       statusBar.text = `$(browser) DSH :${proxy.port}`;
-      statusBar.tooltip = `DSH Client — 代理 ${proxy.origin} → ${baseUrl}`;
+      statusBar.tooltip = `DSH Client — 代理 ${proxy.origin} → ${resolved.url}`;
     }
     if (provider) provider.render();
     return proxy;
@@ -96,11 +121,23 @@ async function openSidebar() {
   await moveViewToSecondarySidebar();
 }
 
+/** 诊断里端口检测状态的可读描述。 */
+function descriptionOfPortDetection(p, requested) {
+  if (!p) return '未启动代理';
+  if (p.requestedBaseUrl === requested && p.detectedBaseUrl === false) {
+    return `未检测到，用默认 ${p.baseUrl}`;
+  }
+  if (p.detectedReason === 'explicit config') return `显式配置 ${p.baseUrl}`;
+  if (p.baseUrl === requested) return '配置端口直接可达';
+  return `自动检测 → ${p.baseUrl}`;
+}
+
 async function showDiagnostics() {
-  const baseUrl = getBaseUrl();
+  const requested = getBaseUrl();
+  const used = (proxy && proxy.baseUrl) || requested;
   let reachable = '检测中…';
   try {
-    const res = await fetch(baseUrl + '/');
+    const res = await fetch(used + '/');
     reachable = `可达 (HTTP ${res.status})`;
   } catch (err) {
     reachable = `不可达: ${err.message}`;
@@ -108,7 +145,9 @@ async function showDiagnostics() {
   const s = proxy ? proxy.stats : { httpRequests: 0, openPathCalls: 0, pickDirectoryCalls: 0, wsConnections: 0, wsFailures: 0 };
   const items = [
     { label: '代理端口', description: proxy ? proxy.origin : '未启动' },
-    { label: 'harness 地址', description: `${baseUrl} — ${reachable}` },
+    { label: 'harness 地址', description: `${used} — ${reachable}` },
+    { label: '端口检测', description: descriptionOfPortDetection(proxy, requested) },
+    { label: 'HTTP 转发', description: String(s.httpRequests) },
     { label: 'HTTP 转发', description: String(s.httpRequests) },
     { label: 'openPath 拦截', description: String(s.openPathCalls) },
     { label: 'pickDirectory 拦截', description: `${proxy && proxy.interceptPickDirectory ? '开' : '关'} · ${s.pickDirectoryCalls} 次` },

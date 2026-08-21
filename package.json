@@ -84,8 +84,8 @@
       "properties": {
         "dsh.baseUrl": {
           "type": "string",
-          "default": "http://127.0.0.1:3082",
-          "description": "DSH harness Web 服务地址（dsh web --port 默认 3082；旧版默认 3080）。修改后自动重启本地代理并刷新界面。"
+          "default": "http://127.0.0.1:3080",
+          "description": "DSH harness Web 服务地址（默认 3080，自动检测真实监听端口）。显式修改后优先使用，不做自动检测。修改后自动重启本地代理并刷新界面。"
         },
         "dsh.interceptPickDirectory": {
           "type": "boolean",
