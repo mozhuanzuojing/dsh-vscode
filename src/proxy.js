@@ -16,6 +16,7 @@ const { WebSocket, WebSocketServer } = require('ws');
 const DEFAULT_BASE_URL = 'http://127.0.0.1:3082';
 const OPEN_PATH_RE = /^\/api\/host\.openPath$/;
 const PICK_DIRECTORY_RE = /^\/api\/host\.pickDirectory$/;
+const SESSION_PROMPT_RE = /^\/api\/session\.prompt$/;
 
 /** 逐跳头（不得原样转发）；host/origin/referer 由代理统一改写。 */
 const HOP_BY_HOP = new Set([
@@ -51,6 +52,8 @@ function createProxy(options = {}) {
   const onPickDirectory = options.onPickDirectory || (async () => { throw new Error('未配置 onPickDirectory 处理函数'); });
   // 降级开关：false 时不拦截，host.pickDirectory 原样转发给 harness 宿主（跨机拓扑逃生通道）。
   const interceptPickDirectory = options.interceptPickDirectory !== false;
+  // 编辑器上下文共享对象：extension 侧实时更新 { block }，这里在 session.prompt 时前缀注入
+  const editorContext = options.editorContext || { block: '' };
   const logger = options.logger || ((_level, _msg) => {});
 
   const stats = {
@@ -99,6 +102,11 @@ function createProxy(options = {}) {
       await handlePickDirectory(req, res);
       return;
     }
+    // 编辑器联动：session.prompt 前缀注入当前文件/选区上下文（①③④ 的共用 seam）
+    if (req.method === 'POST' && SESSION_PROMPT_RE.test(target.pathname)) {
+      await forwardSessionPrompt(req, res, target);
+      return;
+    }
 
     const headers = filterForwardHeaders(req.headers);
     // 同源过围栏：一律改写为 harness 自身 origin
@@ -106,6 +114,10 @@ function createProxy(options = {}) {
     headers.origin = baseUrl.origin;
     headers.referer = baseUrl.origin + '/';
 
+    // 记录最近会话（供选区命令直接发起 prompt）
+    if (req.method === 'POST' && /^\/api\/session\./.test(target.pathname)) {
+      trackSessionIdFromRequest(req, target.pathname);
+    }
     const upstream = http.request({
       protocol: baseUrl.protocol,
       hostname: baseUrl.hostname,
@@ -197,6 +209,64 @@ function createProxy(options = {}) {
     } catch { /* socket 已断 */ }
   }
 
+  /** 从会话 RPC 的 body 里读取 sessionId，记录为最近会话（供选区命令直接发起 prompt）。 */
+  function trackSessionIdFromRequest(req, _pathname) {
+    const chunks = [];
+    req.on('data', (c) => chunks.push(c));
+    req.on('end', () => {
+      try {
+        const envelope = JSON.parse(Buffer.concat(chunks).toString('utf8'));
+        const sid = envelope && envelope.payload && typeof envelope.payload.sessionId === 'string' ? envelope.payload.sessionId : '';
+        if (sid) { proxy.lastSessionId = sid; }
+      } catch { /* body 非 JSON，忽略 */ }
+    });
+  }
+
+  /** session.prompt 转发：读 body，若编辑器上下文非空则前缀注入一条 text part，再转发。 */
+  async function forwardSessionPrompt(req, res, target) {
+    let raw = '';
+    for await (const chunk of req) raw += chunk;
+    let envelope = {};
+    try { envelope = JSON.parse(raw || '{}'); } catch { envelope = {}; }
+    // 记录 sessionId
+    if (envelope && envelope.payload && typeof envelope.payload.sessionId === 'string') {
+      proxy.lastSessionId = envelope.payload.sessionId;
+    }
+    // 编辑器上下文注入（不污染用户意图：块状包裹，格式清晰）
+    const block = editorContext && editorContext.block;
+    if (block && envelope && Array.isArray(envelope.payload && envelope.payload.content)) {
+      envelope.payload.content.unshift({ type: 'text', text: block });
+      raw = JSON.stringify(envelope);
+      logger('info', '已注入编辑器上下文到 session.prompt');
+    }
+    // 转发到上游
+    const headers = filterForwardHeaders(req.headers);
+    headers.host = baseUrl.host;
+    headers.origin = baseUrl.origin;
+    headers.referer = baseUrl.origin + '/';
+    // content-length 按新 body 重算（去掉旧值，让 Node 重设）
+    delete headers['content-length'];
+    const body = Buffer.from(raw, 'utf8');
+    const upstream = http.request({
+      protocol: baseUrl.protocol,
+      hostname: baseUrl.hostname,
+      port: baseUrl.port || (baseUrl.protocol === 'https:' ? 443 : 80),
+      method: 'POST',
+      path: target.pathname + target.search,
+      headers: { ...headers, 'content-length': String(body.length) },
+    }, (upRes) => {
+      res.writeHead(upRes.statusCode || 502, filterForwardHeaders(upRes.headers));
+      upRes.pipe(res);
+    });
+    upstream.on('error', (err) => {
+      stats.errors += 1;
+      logger('error', `session.prompt 上游失败: ${err.message}`);
+      if (!res.headersSent) { res.writeHead(502, { 'content-type': 'text/plain' }); res.end('proxy: 上游错误'); }
+      else res.destroy();
+    });
+    upstream.end(body);
+  }
+
   function handleUpgrade(req, socket, head) {
     const target = new URL(req.url, baseUrl);
     target.protocol = target.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -286,6 +356,7 @@ function createProxy(options = {}) {
     interceptPickDirectory,
     origin: '',
     port: 0,
+    lastSessionId: '',
 
     start() {
       return new Promise((resolve, reject) => {

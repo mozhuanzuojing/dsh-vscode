@@ -32,6 +32,16 @@ const cfgWithOverride = createConfig(() => ({ get: () => {}, inspect: () => ({ w
 check('hasScopeOverride true', cfgWithOverride.hasScopeOverride() === true);
 const cfgFolderOverride = createConfig(() => ({ get: () => {}, inspect: () => ({ workspaceFolderValue: 'http://folder:8080' }), update: async () => {} }));
 check('hasScopeOverride workspaceFolderValue', cfgFolderOverride.hasScopeOverride() === true);
+// ---- editor-context 模块 ----
+const { formatEditorContext } = require('../src/editor-context');
+check('formatEditorContext 无文件→空串', formatEditorContext({}) === '');
+check('formatEditorContext 只路径', formatEditorContext({ filePath: '/a/b.ts' }).includes('file: /a/b.ts'));
+check('formatEditorContext 路径+选区',
+  formatEditorContext({ filePath: '/a/b.ts', startLine: 5, endLine: 10, selectionText: 'hello' }).includes('file: /a/b.ts') &&
+  formatEditorContext({ filePath: '/a/b.ts', startLine: 5, endLine: 10, selectionText: 'hello' }).includes('lines: 5-10') &&
+  formatEditorContext({ filePath: '/a/b.ts', startLine: 5, endLine: 10, selectionText: 'hello' }).includes('hello'));
+check('formatEditorContext 截断', formatEditorContext({ filePath: '/a/b.ts', selectionText: 'x'.repeat(5000) }).includes('(截断)'));
+
 
 
 

@@ -5,8 +5,10 @@ const { DshViewProvider } = require('./view');
 const { detectHarnessUrl, probe } = require('./detect');
 const { createConfig, DEFAULT_BASE_URL } = require('./config');
 const { createPrompt } = require('./prompt');
+const { createEditorContext, bindEditorContext } = require('./editor-context');
 
 const config = createConfig(vscode.workspace.getConfiguration);
+const editorContext = createEditorContext();
 
 let proxy = null;
 let provider = null;
@@ -105,6 +107,7 @@ async function restartProxy() {
     proxy = await createProxy({
       baseUrl: resolved.url,
       interceptPickDirectory,
+      editorContext,
       onOpenPath: openPathInVscode,
       onPickDirectory: pickDirectoryInVscode,
       logger: log,
@@ -197,6 +200,30 @@ async function showDiagnostics() {
   }
 }
 
+/** ③ 选区命令：把当前选中文本 + 模式词发给最近 DSH 会话。 */
+async function sendSelectionToDsh(mode) {
+  const editor = vscode.window.activeTextEditor;
+  const sel = editor && editor.selection && !editor.selection.isEmpty ? editor.selection : null;
+  const text = sel && editor.document.getText(sel);
+  if (!text) { vscode.window.showWarningMessage('DSH Client: 请先选中一段文本。'); return; }
+  if (!proxy || !proxy.baseUrl || !proxy.lastSessionId) {
+    vscode.window.showWarningMessage('DSH Client: 还没有活动的 DSH 会话，请先在 DSH 界面新建/打开会话。');
+    return;
+  }
+  const promptText = mode + '（选中内容）：\n\n' + text.slice(0, 4000);
+  try {
+    const res = await fetch(proxy.baseUrl + '/api/session.prompt', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', host: new URL(proxy.baseUrl).host, origin: proxy.baseUrl },
+      body: JSON.stringify({ type: 'client-request', rpcId: 'ed-' + Date.now(), method: 'session.prompt', payload: { sessionId: proxy.lastSessionId, mode: 'queue', content: [{ type: 'text', text: promptText }] } }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    await vscode.commands.executeCommand('dsh.chatView.focus');
+    vscode.window.showInformationMessage('DSH Client: 已发送「' + mode + '」到 DSH 会话。');
+  } catch (err) {
+    vscode.window.showErrorMessage('DSH Client: 发送失败 ' + err.message);
+  }
+}
 async function activate(context) {
   output = vscode.window.createOutputChannel('DSH Client');
   log('info', 'DSH Client 激活');
@@ -216,7 +243,10 @@ async function activate(context) {
       vscode.env.openExternal(vscode.Uri.parse(config.getBaseUrl()));
     }),
     vscode.commands.registerCommand('awakening.openSettings', openSettings),
-    vscode.commands.registerCommand('awakening.configureHarnessUrl', () => prompt.promptAndPersist())
+    vscode.commands.registerCommand('awakening.configureHarnessUrl', () => prompt.promptAndPersist()),
+    vscode.commands.registerCommand('awakening.explainSelection', () => sendSelectionToDsh('解释')),
+    vscode.commands.registerCommand('awakening.fixSelection', () => sendSelectionToDsh('修复')),
+    vscode.commands.registerCommand('awakening.refactorSelection', () => sendSelectionToDsh('重构'))
   );
 
   context.subscriptions.push(
@@ -238,6 +268,9 @@ async function activate(context) {
       webviewOptions: { retainContextWhenHidden: true },
     })
   );
+
+  // 编辑器联动：跟踪当前文件/选区，供代理在 session.prompt 时注入上下文
+  bindEditorContext(editorContext, vscode);
 
   try {
     await restartProxy().catch((err) => vscode.window.showErrorMessage(

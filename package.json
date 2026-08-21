@@ -60,6 +60,21 @@
         "command": "awakening.configureHarnessUrl",
         "title": "Awakening: 配置 harness 地址",
         "category": "Awakening"
+      },
+      {
+        "command": "awakening.explainSelection",
+        "title": "用 DSH 解释选中内容",
+        "category": "Awakening"
+      },
+      {
+        "command": "awakening.fixSelection",
+        "title": "用 DSH 修复选中内容",
+        "category": "Awakening"
+      },
+      {
+        "command": "awakening.refactorSelection",
+        "title": "用 DSH 重构选中内容",
+        "category": "Awakening"
       }
     ],
     "menus": {
@@ -73,6 +88,23 @@
           "command": "awakening.configureHarnessUrl",
           "group": "navigation",
           "icon": "$(settings-gear)"
+        }
+      ],
+      "editor/context": [
+        {
+          "command": "awakening.explainSelection",
+          "group": "1_dsh",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "awakening.fixSelection",
+          "group": "1_dsh",
+          "when": "editorHasSelection"
+        },
+        {
+          "command": "awakening.refactorSelection",
+          "group": "1_dsh",
+          "when": "editorHasSelection"
         }
       ]
     },
