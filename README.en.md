@@ -54,7 +54,8 @@ Then in VS Code:
 1. Open this directory
 2. Press F5 to launch the "Extension Development Host" (`.vscode/launch.json` is preconfigured)
 3. Click the DSH icon in the Activity Bar (or the whale button in the editor title) → the original UI opens in the secondary sidebar
-4. If the harness port is outside the default detection range (3080-3099), set `awakening.dsh.baseUrl` explicitly (the proxy restarts automatically on change)
+4. If the harness port is outside the default detection range (3080-3099), set `awakening.dsh.baseUrl` explicitly (the proxy restarts automatically on change).
+  - If auto-detection fails, **opening the sidebar shows an input box** — enter the URL, it is probed (marker `__DSH_BOOT__`) and persisted to settings for next time.
 
 ### Installing the packaged build
 
@@ -175,3 +176,4 @@ dsh-vscode/
 - **Watch**: the scan range [3080,3099] and the "not detected" message.
 - **Diagnosis**: the probe range is limited (3080-3099, marker `__DSH_BOOT__` in the homepage); an out-of-range port is not found.
 - **Fix**: set `awakening.dsh.baseUrl` to the real address explicitly (explicit config takes priority, no scanning); or widen `awakening.dsh.probeRange` to scan a larger port range.
+  - **Or just open the sidebar** — the auto-shown input box will enter, probe and save the address for you.

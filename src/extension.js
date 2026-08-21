@@ -2,7 +2,7 @@
 const vscode = require('vscode');
 const { createProxy } = require('./proxy');
 const { DshViewProvider } = require('./view');
-const { detectHarnessUrl } = require('./detect');
+const { detectHarnessUrl, probe } = require('./detect');
 
 const DEFAULT_BASE_URL = 'http://127.0.0.1:3080';
 const DEFAULT_PROBE_RANGE = [3080, 3099]; // 含 dsh 默认 3082
@@ -141,6 +141,57 @@ async function openSettings() {
     log('warn', `打开设置失败: ${err.message}`);
   }
 }
+/** 快速探测某地址是否可达 DSH（判据 __DSH_BOOT__）。 */
+async function isHarnessReachable(url) {
+  return probe(url, { timeoutMs: 1500 });
+}
+
+/** 打开侧边栏时若 harness 不可达，弹输入框补录地址；确认后持久化到 awakening.dsh.baseUrl。
+ *  取消→返回 null；探测不是 DSH→报错并最多重试一次；仍失败→返回 null。 */
+async function promptAndPersistHarnessUrl() {
+  const DEFAULT_SUGGEST = 'http://localhost:';
+  const ask = () => vscode.window.showInputBox({
+    prompt: '未自动检测到 DSH harness。请输入 harness Web 服务地址（本地默认 http://localhost:<port>）。',
+    value: DEFAULT_SUGGEST,
+    placeHolder: 'http://localhost:3082',
+    valueSelection: [DEFAULT_SUGGEST.length, DEFAULT_SUGGEST.length],
+    ignoreFocusOut: true,
+  });
+
+  let entered;
+  for (let attempt = 0; ; attempt++) {
+    entered = await ask();
+    if (entered === undefined) {
+      log('info', '用户取消 harness 地址录入');
+      return null;
+    }
+    let url = entered.trim();
+    if (!/^https?:\/\//i.test(url)) url = 'http://' + url;
+    try { new URL(url); } catch {
+      vscode.window.showErrorMessage('DSH Client: 地址格式无效，请输入形如 http://localhost:3082 的完整地址。');
+      if (attempt >= 1) return null;
+      continue;
+    }
+    log('info', '录入地址复核: ' + url);
+    if (await isHarnessReachable(url)) {
+      try {
+        await getCfg().update('baseUrl', url, vscode.ConfigurationTarget.Global);
+        log('info', '已持久化 harness 地址: ' + url);
+        await vscode.window.showInformationMessage('DSH Client: 已确认并保存 harness 地址 ' + url, { modal: false });
+      } catch (err) {
+        log('warn', '持久化设置失败: ' + err.message);
+        vscode.window.showWarningMessage('DSH Client: 已确认地址 ' + url + '，但保存到设置失败（' + err.message + '）。本次会话仍使用。');
+      }
+      await restartProxy().catch((err) => vscode.window.showErrorMessage('DSH Client: 应用新地址时代理重启失败 ' + err.message));
+      return url;
+    }
+    vscode.window.showErrorMessage('DSH Client: ' + url + ' 不是可用的 DSH 服务（判据 __DSH_BOOT__ 未命中），请重试。');
+    if (attempt >= 1) {
+      vscode.window.showInformationMessage('DSH Client: 未配置成功，可在设置 awakening.dsh.baseUrl 中手动填写，或稍后再试。');
+      return null;
+    }
+  }
+}
 
 async function openSidebar() {
   try {
@@ -152,6 +203,10 @@ async function openSidebar() {
     await vscode.commands.executeCommand('dsh.chatView.focus');
   } catch { /* 视图尚未解析 */ }
   await moveViewToSecondarySidebar();
+  // 打开侧边栏时若 harness 不可达，再弹窗补录（不在激活时打扰）
+  if (proxy && !(await isHarnessReachable(proxy.baseUrl))) {
+    await promptAndPersistHarnessUrl();
+  }
 }
 
 /** 诊断里端口检测状态的可读描述。 */
