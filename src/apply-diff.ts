@@ -55,5 +55,5 @@ export function createApplyDiff(vscodeRef: typeof vscode, options: ApplyDiffOpti
     log('info', '应用 diff 窗口已开启（' + durationMs + 'ms）');
   }
 
-  return { armTurnWindow, dispose: () => { disposed = true; if (timer) clearTimeout(timer); watcher.dispose(); } };
+  return { armTurnWindow, dispose: () => { if (disposed) return; disposed = true; if (timer) clearTimeout(timer); watcher.dispose(); } };
 }

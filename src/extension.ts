@@ -19,6 +19,7 @@ let moveTimer: ReturnType<typeof setTimeout> | undefined;
 
 /** 串行化代理重启队列，防止并发配置变更导致 double-close / 泄漏。 */
 let restartQueue: Promise<unknown> = Promise.resolve(null);
+let shuttingDown = false;
 
 const prompt: Prompt = createPrompt({
   showInputBox: (opts) => new Promise<string | undefined>((resolve) => {
@@ -90,6 +91,7 @@ async function restartProxy(): Promise<ProxyHandle> {
   const prev = restartQueue;
   const next = (async (): Promise<ProxyHandle> => {
     try { await prev; } catch { /* 前一个失败不影响本请求 */ }
+    if (shuttingDown) return proxy as ProxyHandle;
     const interceptPickDirectory = isPickDirectoryIntercepted();
     const requested = config.getBaseUrl();
     const probeRange = config.getProbeRange();
@@ -177,16 +179,16 @@ async function sendSelectionToDsh(mode: string): Promise<void> {
   const sel = editor && editor.selection && !editor.selection.isEmpty ? editor.selection : null;
   const text = editor && sel ? editor.document.getText(sel) : undefined;
   if (!text) { vscode.window.showWarningMessage('DSH Client: 请先选中一段文本。'); return; }
-  if (applyDiff) applyDiff.armTurnWindow();
   if (!proxy || !proxy.baseUrl || !proxy.lastSessionId) {
     vscode.window.showWarningMessage('DSH Client: 还没有活动的 DSH 会话，请先在 DSH 界面新建/打开会话。');
     return;
   }
   const promptText = mode + '（选中内容）：\n\n' + text.slice(0, 4000);
   try {
-    const res = await fetch(proxy.baseUrl + '/api/session.prompt', {
+    // 走本地代理端口，让代理统一改写信任围栏头 + 注入编辑器上下文（文件/行号），并经 onSessionPrompt arm apply-diff
+    const res = await fetch(proxy.origin + '/api/session.prompt', {
       method: 'POST',
-      headers: { 'content-type': 'application/json', host: new URL(proxy.baseUrl).host, origin: proxy.baseUrl },
+      headers: { 'content-type': 'application/json' },
       body: JSON.stringify({ type: 'client-request', rpcId: 'ed-' + Date.now(), method: 'session.prompt', payload: { sessionId: proxy.lastSessionId, mode: 'queue', content: [{ type: 'text', text: promptText }] } }),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -199,6 +201,7 @@ async function sendSelectionToDsh(mode: string): Promise<void> {
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
   output = vscode.window.createOutputChannel('DSH Client');
+  context.subscriptions.push(output);
   log('info', 'DSH Client 激活');
 
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
@@ -255,6 +258,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 }
 
 export async function deactivate(): Promise<void> {
+  shuttingDown = true;
+  await restartQueue.catch(() => {});
   if (proxy) { await proxy.close().catch(() => {}); proxy = null; }
-  if (applyDiff) { applyDiff.dispose(); }
+  // applyDiff 已挂 context.subscriptions，由 VS Code 统一释放，这里不再重复 dispose
 }
