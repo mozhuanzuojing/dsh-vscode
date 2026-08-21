@@ -11,12 +11,13 @@
 
 | 模块 | 职责 | 测试入口 |
 | --- | --- | --- |
-| `src/config.js` | 纯读配置，`createConfig(getConfiguration)` | 注入 fake `getConfiguration` |
-| `src/prompt.js` | 交互式补录流程，`createPrompt(deps)` | 注入 fake UI 适配器 |
-| `src/proxy.js` | HTTP 反向代理 + WS 透传 + RPC 拦截 | 完整冒烟 |
-| `src/detect.js` | Harness 端口探测，`probe`/`detectHarnessUrl` | 已可独立测试 |
-| `src/view.js` | Webview iframe 视图 | 需 VS Code 宿主 |
-| `src/extension.js` | 扩展入口：编排、激活、命令、诊断 | 需 VS Code 宿主 |
+| `src/config.ts` | 纯读配置，`createConfig(getConfiguration)` | 注入 fake `getConfiguration` |
+| `src/prompt.ts` | 交互式补录流程，`createPrompt(deps)` | 注入 fake UI 适配器 |
+| `src/proxy.ts` | HTTP 反向代理 + WS 透传 + RPC 拦截 | 完整冒烟 |
+| `src/detect.ts` | Harness 端口探测，`probe`/`detectHarnessUrl` | 已可独立测试 |
+| `src/view.ts` | Webview iframe 视图（含顶部端口顶条） | 需 VS Code 宿主 |
+| `src/apply-diff.ts` | ② 应用 diff：agent 写文件后同步到编辑器（isDirty 保护 + 30s 窗口） | 需 VS Code 宿主 |
+| `src/extension.ts` | 扩展入口：编排、激活、命令、诊断 | 需 VS Code 宿主 |
 
 ## 关键协议
 

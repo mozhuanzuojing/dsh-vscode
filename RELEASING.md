@@ -25,8 +25,8 @@
 
 ## 验证判据（步骤 4）
 
-- npm run build：tsgo 编译（须 0 错误）。
-- node --check：可选（编译产物由 tsgo 保证）。
+- npm run build：tsc 编译（typescript 7.0.2，须 0 错误）。
+- node --check：可选（编译产物由 tsc 保证）。
 - npm test：构建 + 运行单元测试（编译后）（注入 fake，不依赖 VS Code）。
 - npm run smoke：HTTP 转发 / openPath / pickDirectory（选中+取消+降级开关）/ WS 透传 —— 8 项全绿。
 - package.json JSON 校验、已装副本 = git 提交源码一致。
