@@ -194,15 +194,13 @@ function ovFindContext(): Promise<string> {
       const doc = editor && editor.document;
       const query = (doc && doc.uri.fsPath.split('/').pop()) || (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].name) || '当前项目';
       const OV_MCP_URL = 'http://127.0.0.1:1933/mcp';
-      const timer2 = setTimeout(() => { resolve(''); }, 3000);
       mcpFind(OV_MCP_URL, query, 3).then((recall) => {
-        clearTimeout(timer2);
-        if (!recall) {
+        if (!recall.ok) {
           if (!ovWarned) { ovWarned = true; log('info', 'OpenViking MCP 不可用（' + OV_MCP_URL + '），[Repo Recall] 跳过；如需关闭请设 awakening.dsh.openvikingRecall=false'); }
           resolve(''); return;
         }
-        resolve(recall);
-      }).catch(() => { clearTimeout(timer2); resolve(''); });
+        resolve(recall.text); // ok=true：可达（可能 0 结果），不再误报"不可用"
+      }).catch(() => { resolve(''); });
     } catch { resolve(''); }
   });
 }
