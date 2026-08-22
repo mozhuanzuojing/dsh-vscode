@@ -216,7 +216,7 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
           try {
             const str = typeof data === 'string' ? data : data.toString();
             const f = JSON.parse(str);
-            if (f && typeof f.type === 'string') onMuxFrame({ type: f.type, payload: f.payload, rpcId: f.rpcId });
+            if (f && f.type === 'server-request' && typeof f.method === 'string') onMuxFrame({ type: f.method, payload: f.payload, rpcId: f.rpcId });
           } catch { /* 非 JSON 帧，忽略 */ }
         }
         try { clientWs!.send(data, { binary: isBinary }); } catch { /* closed */ }

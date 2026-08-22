@@ -210,6 +210,8 @@ async function respondViaProxy(rpcId: string, value: unknown): Promise<boolean> 
       body: JSON.stringify({ type: 'client-response', rpcId, result: { ok: true, value } }),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
+    const body: any = await res.json().catch(() => ({}));
+    if (body && body.accepted === false) throw new Error('服务器拒绝应答: ' + (body.reason || ''));
     return true;
   } catch (err) { vscode.window.showErrorMessage('DSH Client: 应答失败 ' + (err as Error).message); return false; }
 }
@@ -248,6 +250,8 @@ async function cancelSession(): Promise<void> {
       body: JSON.stringify({ type: 'client-request', rpcId: 'cancel-' + Date.now(), method: 'session.cancel', payload: { sessionId: proxy.lastSessionId } }),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
+    const body: any = await res.json().catch(() => ({}));
+    if (body && body.result && body.result.ok === false) throw new Error('服务器拒绝: ' + JSON.stringify(body.result.error || {}));
     agentRunning = false; if (agentStatusBar) { agentStatusBar.text = '$(check) DSH 空闲'; agentStatusBar.show(); }
     vscode.window.showInformationMessage('DSH Client: 已发送取消。');
   } catch (err) { vscode.window.showErrorMessage('DSH Client: 取消失败 ' + (err as Error).message); }
