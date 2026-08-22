@@ -219,7 +219,7 @@ async function respondViaProxy(rpcId: string, value: unknown): Promise<boolean> 
 /** #1/#2/#3/#4 共享底座回调：tap mux 帧 → 回合状态 / 审批下沉 / 问题下沉。 */
 function handleMuxFrame(frame: { type: string; payload?: unknown; rpcId?: string }): void {
   if (!frame || !frame.type) return;
-  const p = (frame.payload || {}) as { sessionId?: string; approvalId?: string; toolName?: string; questions?: { id?: string }[] };
+  const p = (frame.payload || {}) as { sessionId?: string; approvalId?: string; toolName?: string; questions?: { id?: string; question?: string; options?: { label: string; description?: string }[]; multiSelect?: boolean }[] };
   if (frame.type === 'session/event' || frame.type === 'session/queue' || frame.type === 'session/jobs' || frame.type === 'session/projection' || frame.type === 'approval/requested' || frame.type === 'question/requested') {
     agentRunning = true;
     if (agentStatusBar) { agentStatusBar.text = '$(sync~spin) DSH 回合中'; agentStatusBar.show(); }
@@ -233,9 +233,22 @@ function handleMuxFrame(frame: { type: string; payload?: unknown; rpcId?: string
     });
   } else if (frame.type === 'question/requested' && p.sessionId && frame.rpcId) {
     void (async () => {
-      const q = (p.questions && p.questions[0]) || {};
-      const answer = await vscode.window.showInputBox({ prompt: 'DSH 询问：' + ((q as { prompt?: string }).prompt || '请回答'), ignoreFocusOut: true });
-      const ans = answer === undefined ? [] : [{ id: q.id || 'q', selected: [], custom: answer }];
+      const q = (p.questions && p.questions[0]) as { id?: string; question?: string; options?: { label: string; description?: string }[]; multiSelect?: boolean } | undefined;
+      const qid = q && q.id ? q.id : 'q';
+      const label = q && q.question ? q.question : '请回答';
+      const opts = q && q.options ? q.options : undefined;
+      const multi = q ? !!q.multiSelect : false;
+      let ans: { id: string; selected: string[]; custom?: string }[];
+      if (opts && opts.length > 0) {
+        const items = opts.map((o) => ({ label: o.label, description: o.description }));
+        const picked = await vscode.window.showQuickPick(items, { title: 'DSH 询问：' + label, canPickMany: multi, ignoreFocusOut: true });
+        if (picked === undefined) { await respondViaProxy(frame.rpcId as string, { sessionId: p.sessionId, answer: { answers: [] } }); return; }
+        const sel = Array.isArray(picked) ? picked.map((x) => x.label) : [picked.label];
+        ans = [{ id: qid, selected: sel }];
+      } else {
+        const answer = await vscode.window.showInputBox({ prompt: 'DSH 询问：' + label, ignoreFocusOut: true });
+        ans = answer === undefined ? [] : [{ id: qid, selected: [], custom: answer }];
+      }
       await respondViaProxy(frame.rpcId as string, { sessionId: p.sessionId, answer: { answers: ans } });
     })();
   }
