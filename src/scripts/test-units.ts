@@ -34,11 +34,21 @@ check('hasScopeOverride workspaceFolderValue', cfgFolderOverride.hasScopeOverrid
 // ---- editor-context 模块 ----
 import { formatEditorContext } from '../editor-context';
 check('formatEditorContext 无文件→空串', formatEditorContext({}) === '');
-check('formatEditorContext 只路径', formatEditorContext({ filePath: '/a/b.ts' }).includes('file: /a/b.ts'));
+check('formatEditorContext 头尾 User Input', formatEditorContext({ filePath: '/a/b.ts' }).startsWith('[User Input]\n') && formatEditorContext({ filePath: '/a/b.ts' }).includes('[/User Input]'));
+check('formatEditorContext 相对路径+类型+工作区',
+  formatEditorContext({ filePath: '/ws/a/b.ts', relativePath: 'a/b.ts', languageId: 'typescript', workspaceName: 'proj' })
+    .includes('file: a/b.ts') &&
+  formatEditorContext({ filePath: '/ws/a/b.ts', relativePath: 'a/b.ts', languageId: 'typescript', workspaceName: 'proj' })
+    .includes('language: typescript') &&
+  formatEditorContext({ filePath: '/ws/a/b.ts', relativePath: 'a/b.ts', languageId: 'typescript', workspaceName: 'proj' })
+    .includes('workspace: proj'));
 check('formatEditorContext 路径+选区',
   formatEditorContext({ filePath: '/a/b.ts', startLine: 5, endLine: 10, selectionText: 'hello' }).includes('file: /a/b.ts') &&
   formatEditorContext({ filePath: '/a/b.ts', startLine: 5, endLine: 10, selectionText: 'hello' }).includes('lines: 5-10') &&
+  formatEditorContext({ filePath: '/a/b.ts', startLine: 5, endLine: 10, selectionText: 'hello' }).includes('selection:') &&
   formatEditorContext({ filePath: '/a/b.ts', startLine: 5, endLine: 10, selectionText: 'hello' }).includes('hello'));
+check('formatEditorContext 小文件全文', formatEditorContext({ filePath: '/a/b.ts', fullText: 'line1\nline2', lineCount: 2 }).includes('content (full):') && formatEditorContext({ filePath: '/a/b.ts', fullText: 'line1\nline2', lineCount: 2 }).includes('line2'));
+check('formatEditorContext 大文件前200行', formatEditorContext({ filePath: '/a/b.ts', fullText: Array(300).fill('x'.repeat(50)).join('\n'), lineCount: 300 }).includes('content (first 200 lines, total 300):'));
 check('formatEditorContext 截断', formatEditorContext({ filePath: '/a/b.ts', selectionText: 'x'.repeat(5000) }).includes('(截断)'));
 
 
