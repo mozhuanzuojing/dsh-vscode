@@ -20,6 +20,7 @@ let moveTimer: ReturnType<typeof setTimeout> | undefined;
 /** 串行化代理重启队列，防止并发配置变更导致 double-close / 泄漏。 */
 let restartQueue: Promise<unknown> = Promise.resolve(null);
 let shuttingDown = false;
+let lastRealPort = '';
 
 const prompt: Prompt = createPrompt({
   showInputBox: (opts) => new Promise<string | undefined>((resolve) => {
@@ -109,6 +110,11 @@ async function restartProxy(): Promise<ProxyHandle> {
     proxy.detectedBaseUrl = resolved.detected;
     proxy.detectedReason = resolved.reason;
     log('info', '代理就绪: ' + proxy.origin + ' -> ' + resolved.url + '（请求 ' + requested + '，' + resolved.reason + '）');
+    const realPort = new URL(resolved.url).port;
+    if (realPort && realPort !== lastRealPort) {
+      lastRealPort = realPort;
+      vscode.window.showInformationMessage('已连接到真实服务端口 ' + realPort + '（经本地代理 ' + proxy.port + '）', { modal: false });
+    }
     if (statusBar) {
       statusBar.text = '$(browser) DSH :' + proxy.port;
       statusBar.tooltip = 'DSH Client — 代理 ' + proxy.origin + ' → ' + resolved.url;

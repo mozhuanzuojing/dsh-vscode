@@ -53,8 +53,11 @@ export class DshViewProvider implements vscode.WebviewViewProvider {
   private updateTitle(): void {
     if (!this.view) return;
     const s = this.getStatus();
-    const port = s && s.origin ? new URL(s.origin).port : '';
-    this.view.title = port ? 'DSH Chat :' + port : 'DSH Chat';
+    const proxyPort = s && s.origin ? new URL(s.origin).port : '';
+    const realPort = s && s.baseUrl ? new URL(s.baseUrl).port : '';
+    if (proxyPort && realPort) this.view.title = 'DSH Awakening :' + proxyPort + '→' + realPort;
+    else if (realPort) this.view.title = 'DSH Awakening :' + realPort;
+    else this.view.title = 'DSH Awakening';
   }
 
   private renderHtml(): string {

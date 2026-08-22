@@ -106,6 +106,12 @@
           "group": "1_dsh",
           "when": "editorHasSelection"
         }
+      ],
+      "commandPalette": [
+        {
+          "command": "awakening.configureHarnessUrl",
+          "when": "false"
+        }
       ]
     },
     "viewsContainers": {
@@ -122,7 +128,7 @@
         {
           "type": "webview",
           "id": "dsh.chatView",
-          "name": "DSH Chat"
+          "name": "DSH Awakening"
         }
       ]
     },
