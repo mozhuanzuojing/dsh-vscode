@@ -23,12 +23,13 @@ export interface VscodeLike {
     onDidChangeActiveTextEditor(cb: () => void): { dispose(): void };
     onDidChangeTextEditorSelection(cb: (e: { textEditor: unknown }) => void): { dispose(): void };
   };
-  workspace: { workspaceFolders?: readonly { name: string; uri: { fsPath: string } }[] };
+  workspace: { workspaceFolders?: readonly { name: string; uri: { fsPath: string } }[]; getWorkspaceFolder?(uri: unknown): { name: string; uri: { fsPath: string } } | undefined };
 }
 
 const MAX_SELECTION = 4000;
 const MAX_WHOLE_FILE = 8000;
 const MAX_FIRST_LINES = 200;
+const MAX_FIRST_CHARS = 8000;
 
 function clip(text: string, max: number): string {
   return text.length > max ? text.slice(0, max) + '\n…(截断)' : text;
@@ -55,7 +56,8 @@ export function formatEditorContext(s: EditorState): string {
     out.push('content (full):');
     out.push(s.fullText);
   } else if (s.fullText) {
-    const first = s.fullText.split('\n').slice(0, MAX_FIRST_LINES).join('\n');
+    let first = s.fullText.split('\n').slice(0, MAX_FIRST_LINES).join('\n');
+    if (first.length > MAX_FIRST_CHARS) first = first.slice(0, MAX_FIRST_CHARS) + '\n…(截断)';
     out.push('content (first ' + MAX_FIRST_LINES + ' lines, total ' + (s.lineCount ?? '?') + '):');
     out.push(first);
   }
@@ -74,8 +76,15 @@ export function bindEditorContext(ctx: EditorContextBarrel, vscode: VscodeLike):
     const doc = editor && editor.document;
     if (!doc || doc.uri.scheme !== 'file') { ctx.block = ''; return; }
     const sel = editor.selection && !editor.selection.isEmpty ? editor.selection : null;
-    const folder = (vscode.workspace.workspaceFolders || []).find((f) => doc.uri.fsPath.startsWith(f.uri.fsPath));
-    const rel = folder ? doc.uri.fsPath.slice(folder.uri.fsPath.length).replace(/^\//, '') : undefined;
+    const folder = vscode.workspace.getWorkspaceFolder ? vscode.workspace.getWorkspaceFolder(doc.uri) : undefined;
+    const rel = folder ? doc.uri.fsPath.slice(folder.uri.fsPath.length).replace(/^[\\/]+/, '') : undefined;
+    const selectionText = sel ? doc.getText(sel) : undefined;
+    // 无选区时按需取内容：小文件全文 / 大文件仅前200行（用 range，避免整读）
+    let fullText: string | undefined;
+    if (!sel) {
+      const lastLine = Math.min(doc.lineCount, 200);
+      fullText = doc.getText({ start: { line: 0, character: 0 }, end: { line: lastLine, character: 0 } });
+    }
     ctx.block = formatEditorContext({
       filePath: doc.uri.fsPath,
       relativePath: rel,
@@ -84,8 +93,8 @@ export function bindEditorContext(ctx: EditorContextBarrel, vscode: VscodeLike):
       lineCount: doc.lineCount,
       startLine: sel ? sel.start.line + 1 : undefined,
       endLine: sel ? sel.end.line + 1 : undefined,
-      selectionText: sel ? doc.getText(sel) : undefined,
-      fullText: doc.getText(),
+      selectionText,
+      fullText,
     });
   }
   disposables.push(vscode.window.onDidChangeActiveTextEditor(refresh));

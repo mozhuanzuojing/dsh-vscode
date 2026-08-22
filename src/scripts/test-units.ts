@@ -49,6 +49,8 @@ check('formatEditorContext 路径+选区',
   formatEditorContext({ filePath: '/a/b.ts', startLine: 5, endLine: 10, selectionText: 'hello' }).includes('hello'));
 check('formatEditorContext 小文件全文', formatEditorContext({ filePath: '/a/b.ts', fullText: 'line1\nline2', lineCount: 2 }).includes('content (full):') && formatEditorContext({ filePath: '/a/b.ts', fullText: 'line1\nline2', lineCount: 2 }).includes('line2'));
 check('formatEditorContext 大文件前200行', formatEditorContext({ filePath: '/a/b.ts', fullText: Array(300).fill('x'.repeat(50)).join('\n'), lineCount: 300 }).includes('content (first 200 lines, total 300):'));
+const bigBlock = formatEditorContext({ filePath: '/a/b.ts', fullText: Array(300).fill('x'.repeat(500)).join('\n'), lineCount: 300 });
+check('formatEditorContext 大文件字符上限', bigBlock.length < 9000 && bigBlock.includes('…(截断)'));
 check('formatEditorContext 截断', formatEditorContext({ filePath: '/a/b.ts', selectionText: 'x'.repeat(5000) }).includes('(截断)'));
 
 
