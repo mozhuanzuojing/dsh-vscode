@@ -162,6 +162,11 @@
           "type": "boolean",
           "default": true,
           "description": "扩展激活时是否自动将 DSH 视图移入辅助侧边栏（secondary sidebar）。关闭后视图在主侧边栏；可手动拖拽切换。修改后需重载窗口生效。"
+        },
+        "awakening.dsh.openvikingRecall": {
+          "type": "boolean",
+          "default": true,
+          "description": "启用 OpenViking 语义检索补充上下文（[Repo Recall]）。依赖本机 ov CLI + OpenViking 服务；不可用/关闭时静默跳过，不影响消息发送。"
         }
       }
     }

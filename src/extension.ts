@@ -185,14 +185,19 @@ async function showDiagnostics(): Promise<void> {
 }
 
 /** #7 OpenViking 语义检索：用本机 ov CLI 找与当前文件/工作区相关的上下文。失败/超时返回 ''（不阻塞注入）。 */
+let ovWarned = false;
 function ovFindContext(): Promise<string> {
   return new Promise((resolve) => {
+    if (!config.openvikingRecallEnabled()) { resolve(''); return; }
     try {
       const editor = vscode.window.activeTextEditor;
       const doc = editor && editor.document;
       const query = (doc && doc.uri.fsPath.split('/').pop()) || (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].name) || '当前项目';
       exec('ov find ' + JSON.stringify(query) + ' --limit 3', { timeout: 3000 }, (err, stdout) => {
-        if (err) { resolve(''); return; }
+        if (err) {
+          if (!ovWarned) { ovWarned = true; log('info', 'OpenViking 不可用（' + (err as Error).message + '），[Repo Recall] 跳过；如需关闭请设 awakening.dsh.openvikingRecall=false'); }
+          resolve(''); return;
+        }
         const head = String(stdout || '').trim();
         if (!head) { resolve(''); return; }
         resolve('\n[Repo Recall]\n' + head.slice(0, 2000) + '\n[/Repo Recall]\n');

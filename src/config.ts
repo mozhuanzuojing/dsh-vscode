@@ -42,6 +42,9 @@ export function createConfig(getConfiguration: (ns: string) => DshConfiguration)
     shouldAutoMove(): boolean {
       return cfg().get<boolean>('autoMoveToSecondarySidebar', true);
     },
+    openvikingRecallEnabled(): boolean {
+      return cfg().get<boolean>('openvikingRecall', true);
+    },
     pickDirectoryIntercepted(): boolean {
       return cfg().get<boolean>('interceptPickDirectory', true);
     },
