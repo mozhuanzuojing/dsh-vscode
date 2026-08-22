@@ -9,7 +9,7 @@ export interface DshViewProviderOptions {
 
 /**
  * webview 视图：iframe 内嵌原版 DSH web（代理 origin）。
- * 端口信息放在 VSCode 视图标题里（DSH Chat :<port>），不在 webview 里再画顶条，
+ * 端口信息放在 VSCode 视图标题里（DSH Awakening :<代理>→<真实>），不在 webview 里再画顶条，
  * 因此顶部只有一行（VSCode 生成的视图标题栏）。
  */
 export class DshViewProvider implements vscode.WebviewViewProvider {
@@ -49,7 +49,7 @@ export class DshViewProvider implements vscode.WebviewViewProvider {
     }
   }
 
-  /** 把端口放进视图标题（VSCode 渲染成 "DSH: DSH Chat :<port>"）——单行。 */
+  /** 把端口映射放进视图标题（VSCode 渲染成 "DSH: DSH Awakening :<代理>→<真实>"）——单行。 */
   private updateTitle(): void {
     if (!this.view) return;
     const s = this.getStatus();
