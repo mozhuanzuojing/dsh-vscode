@@ -8,7 +8,7 @@ export interface EditorState {
   selectionText?: string;   // 选区文本（有选区时）
   fullText?: string;        // 全文（由 bind 侧提供，此处按大小决定是否嵌入）
 }
-export interface EditorContextBarrel { block: string; }
+export interface EditorContextBarrel { block: string; recall?: () => Promise<string>; }
 export interface VscodeLike {
   window: {
     activeTextEditor?: {

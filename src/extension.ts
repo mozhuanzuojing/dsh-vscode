@@ -1,4 +1,5 @@
 import * as vscode from 'vscode';
+import { exec } from 'node:child_process';
 import { createProxy, ProxyHandle, ProxyOptions } from './proxy';
 import { DshViewProvider } from './view';
 import { detectHarnessUrl, probe } from './detect';
@@ -21,6 +22,9 @@ let moveTimer: ReturnType<typeof setTimeout> | undefined;
 let restartQueue: Promise<unknown> = Promise.resolve(null);
 let shuttingDown = false;
 let lastRealPort = '';
+let agentRunning = false;
+let agentIdleTimer: ReturnType<typeof setTimeout> | undefined;
+let agentStatusBar: vscode.StatusBarItem | null = null;
 
 const prompt: Prompt = createPrompt({
   showInputBox: (opts) => new Promise<string | undefined>((resolve) => {
@@ -103,6 +107,7 @@ async function restartProxy(): Promise<ProxyHandle> {
       baseUrl: resolved.url, interceptPickDirectory, editorContext,
       onOpenPath: openPathInVscode, onPickDirectory: pickDirectoryInVscode,
       onSessionPrompt: () => { if (applyDiff) applyDiff.armTurnWindow(); },
+      onMuxFrame: handleMuxFrame,
       logger: log,
     }).start();
     proxy.requestedBaseUrl = requested;
@@ -179,6 +184,75 @@ async function showDiagnostics(): Promise<void> {
   }
 }
 
+/** #7 OpenViking 语义检索：用本机 ov CLI 找与当前文件/工作区相关的上下文。失败/超时返回 ''（不阻塞注入）。 */
+function ovFindContext(): Promise<string> {
+  return new Promise((resolve) => {
+    try {
+      const editor = vscode.window.activeTextEditor;
+      const doc = editor && editor.document;
+      const query = (doc && doc.uri.fsPath.split('/').pop()) || (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].name) || '当前项目';
+      exec('ov find ' + JSON.stringify(query) + ' --limit 3', { timeout: 3000 }, (err, stdout) => {
+        if (err) { resolve(''); return; }
+        const head = String(stdout || '').trim();
+        if (!head) { resolve(''); return; }
+        resolve('\n[Repo Recall]\n' + head.slice(0, 2000) + '\n[/Repo Recall]\n');
+      });
+    } catch { resolve(''); }
+  });
+}
+
+/** 经本地代理应答 server-request（approval/question 的 client-response）。 */
+async function respondViaProxy(rpcId: string, value: unknown): Promise<boolean> {
+  if (!proxy || !proxy.baseUrl || !rpcId) return false;
+  try {
+    const res = await fetch(proxy.origin + '/api/respond', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'client-response', rpcId, result: { ok: true, value } }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return true;
+  } catch (err) { vscode.window.showErrorMessage('DSH Client: 应答失败 ' + (err as Error).message); return false; }
+}
+
+/** #1/#2/#3/#4 共享底座回调：tap mux 帧 → 回合状态 / 审批下沉 / 问题下沉。 */
+function handleMuxFrame(frame: { type: string; payload?: unknown; rpcId?: string }): void {
+  if (!frame || !frame.type) return;
+  const p = (frame.payload || {}) as { sessionId?: string; approvalId?: string; toolName?: string; questions?: { id?: string }[] };
+  if (frame.type === 'session/event' || frame.type === 'session/queue' || frame.type === 'session/jobs' || frame.type === 'session/projection' || frame.type === 'approval/requested' || frame.type === 'question/requested') {
+    agentRunning = true;
+    if (agentStatusBar) { agentStatusBar.text = '$(sync~spin) DSH 回合中'; agentStatusBar.show(); }
+    if (agentIdleTimer) clearTimeout(agentIdleTimer);
+    agentIdleTimer = setTimeout(() => { agentRunning = false; if (agentStatusBar) { agentStatusBar.text = '$(check) DSH 空闲'; agentStatusBar.show(); } }, 20000);
+  }
+  if (frame.type === 'approval/requested' && p.sessionId && p.approvalId && frame.rpcId) {
+    vscode.window.showWarningMessage('DSH 需要审批：工具 ' + (p.toolName || '?'), { modal: true }, '允许一次', '拒绝').then((choice) => {
+      const outcome = choice === '允许一次' ? 'allowed-once' : 'rejected';
+      respondViaProxy(frame.rpcId as string, { sessionId: p.sessionId, approvalId: p.approvalId, outcome });
+    });
+  } else if (frame.type === 'question/requested' && p.sessionId && frame.rpcId) {
+    void (async () => {
+      const q = (p.questions && p.questions[0]) || {};
+      const answer = await vscode.window.showInputBox({ prompt: 'DSH 询问：' + ((q as { prompt?: string }).prompt || '请回答'), ignoreFocusOut: true });
+      const ans = answer === undefined ? [] : [{ id: q.id || 'q', selected: [], custom: answer }];
+      await respondViaProxy(frame.rpcId as string, { sessionId: p.sessionId, answer: { answers: ans } });
+    })();
+  }
+}
+
+/** #1 取消当前回合：经本地代理发起 session.cancel（与 UI 同通道，头规范化）。 */
+async function cancelSession(): Promise<void> {
+  if (!proxy || !proxy.baseUrl || !proxy.lastSessionId) { vscode.window.showWarningMessage('DSH Client: 没有活动会话可取消。'); return; }
+  try {
+    const res = await fetch(proxy.origin + '/api/session.cancel', {
+      method: 'POST', headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ type: 'client-request', rpcId: 'cancel-' + Date.now(), method: 'session.cancel', payload: { sessionId: proxy.lastSessionId } }),
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    agentRunning = false; if (agentStatusBar) { agentStatusBar.text = '$(check) DSH 空闲'; agentStatusBar.show(); }
+    vscode.window.showInformationMessage('DSH Client: 已发送取消。');
+  } catch (err) { vscode.window.showErrorMessage('DSH Client: 取消失败 ' + (err as Error).message); }
+}
+
 /** ③ 选区命令：把当前选中文本 + 模式词发给最近 DSH 会话。 */
 async function sendSelectionToDsh(mode: string): Promise<void> {
   const editor = vscode.window.activeTextEditor;
@@ -210,6 +284,13 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   context.subscriptions.push(output);
   log('info', 'DSH Client 激活');
 
+  agentStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
+  agentStatusBar.text = '$(check) DSH 空闲';
+  agentStatusBar.command = 'dsh.cancelSession';
+  agentStatusBar.tooltip = 'DSH 回合状态；点击取消当前回合';
+  agentStatusBar.show();
+  context.subscriptions.push(agentStatusBar);
+
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBar.text = '$(browser) DSH';
   statusBar.command = 'dsh.diagnostics';
@@ -226,7 +307,8 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('awakening.configureHarnessUrl', () => prompt.promptAndPersist()),
     vscode.commands.registerCommand('awakening.explainSelection', () => sendSelectionToDsh('解释')),
     vscode.commands.registerCommand('awakening.fixSelection', () => sendSelectionToDsh('修复')),
-    vscode.commands.registerCommand('awakening.refactorSelection', () => sendSelectionToDsh('重构'))
+    vscode.commands.registerCommand('awakening.refactorSelection', () => sendSelectionToDsh('重构')),
+    vscode.commands.registerCommand('dsh.cancelSession', cancelSession)
   );
 
   context.subscriptions.push(
@@ -247,6 +329,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   );
 
   const { dispose: disposeEditorCtx } = bindEditorContext(editorContext, vscode);
+  editorContext.recall = ovFindContext;
   context.subscriptions.push({ dispose: disposeEditorCtx });
   applyDiff = createApplyDiff(vscode, { log });
   context.subscriptions.push(applyDiff);
@@ -267,5 +350,5 @@ export async function deactivate(): Promise<void> {
   shuttingDown = true;
   await restartQueue.catch(() => {});
   if (proxy) { await proxy.close().catch(() => {}); proxy = null; }
-  // applyDiff 已挂 context.subscriptions，由 VS Code 统一释放，这里不再重复 dispose
+  if (agentIdleTimer) clearTimeout(agentIdleTimer);
 }

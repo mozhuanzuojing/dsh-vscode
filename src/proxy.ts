@@ -27,8 +27,9 @@ export interface ProxyOptions {
   onOpenPath?: (path: string) => Promise<void>;
   onPickDirectory?: () => Promise<string | null>;
   interceptPickDirectory?: boolean;
-  editorContext?: { block: string };
+  editorContext?: { block: string; recall?: () => Promise<string> };
   onSessionPrompt?: () => void;
+  onMuxFrame?: (frame: { type: string; payload?: unknown; rpcId?: string }) => void;
   logger?: (level: string, msg: string) => void;
 }
 export interface ProxyStats {
@@ -51,6 +52,7 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
   const interceptPickDirectory = options.interceptPickDirectory !== false;
   const editorContext = options.editorContext || { block: '' };
   const onSessionPrompt = options.onSessionPrompt || (() => {});
+  const onMuxFrame = options.onMuxFrame || (() => {});
   const logger = options.logger || ((_level: string, _msg: string) => {});
 
   const stats: ProxyStats = {
@@ -164,7 +166,13 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
     let envelope: any = {}; try { envelope = JSON.parse(raw || '{}'); } catch { envelope = {}; }
     if (envelope && envelope.payload && typeof envelope.payload.sessionId === 'string') proxy.lastSessionId = envelope.payload.sessionId;
     onSessionPrompt();
-    const block = editorContext && editorContext.block;
+    let block = editorContext && editorContext.block;
+    if (editorContext && editorContext.recall) {
+      try {
+        const recall = await Promise.race([editorContext.recall(), new Promise<string>((resolve) => setTimeout(() => resolve(''), 3000))]);
+        if (recall) block = (block || '') + recall;
+      } catch { /* recall 失败忽略 */ }
+    }
     if (block && envelope && Array.isArray(envelope.payload && envelope.payload.content)) {
       envelope.payload.content.unshift({ type: 'text', text: block });
       raw = JSON.stringify(envelope); logger('info', '已注入编辑器上下文到 session.prompt');
@@ -186,6 +194,7 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
   function handleUpgrade(req: http.IncomingMessage, socket: any, head: Buffer) {
     const target = new URL(req.url || '/', baseUrl);
     target.protocol = target.protocol === 'https:' ? 'wss:' : 'ws:';
+    const isMux = /\/api\/events\.mux/.test(req.url || '');
     logger('info', 'WS 透传 ' + req.url);
     const upstream = new WebSocket(target.toString(), {
       headers: { host: baseUrl.host, origin: baseUrl.origin, ...(req.headers['sec-websocket-protocol'] ? { 'sec-websocket-protocol': req.headers['sec-websocket-protocol'] as string } : {}) },
@@ -201,7 +210,17 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
       catch (err) { stats.wsFailures += 1; logger('error', 'WS 客户端升级失败 ' + req.url + ': ' + (err as Error).message); try { upstream.close(); } catch { /* noop */ } try { socket.destroy(); } catch { /* noop */ } return; }
       if (!clientWs) { try { upstream.close(); } catch { /* noop */ } try { socket.destroy(); } catch { /* noop */ } return; }
       clientWs.on('message', (data: RawData, isBinary: boolean) => { try { upstream.send(data, { binary: isBinary }); } catch { /* closed */ } });
-      upstream.on('message', (data: RawData, isBinary: boolean) => { try { clientWs!.send(data, { binary: isBinary }); } catch { /* closed */ } });
+      upstream.on('message', (data: RawData, isBinary: boolean) => {
+        // 共享底座：tap mux 下行帧，把事件信号转给扩展（回合状态/工具/审批/问题）
+        if (isMux && !isBinary) {
+          try {
+            const str = typeof data === 'string' ? data : data.toString();
+            const f = JSON.parse(str);
+            if (f && typeof f.type === 'string') onMuxFrame({ type: f.type, payload: f.payload, rpcId: f.rpcId });
+          } catch { /* 非 JSON 帧，忽略 */ }
+        }
+        try { clientWs!.send(data, { binary: isBinary }); } catch { /* closed */ }
+      });
       clientWs.on('close', () => { try { upstream.close(); } catch { /* noop */ } });
       upstream.on('close', () => { try { clientWs!.close(); } catch { /* noop */ } });
       clientWs.on('error', () => { try { upstream.close(); } catch { /* noop */ } });
