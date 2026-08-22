@@ -1,5 +1,5 @@
 import * as vscode from 'vscode';
-import { exec } from 'node:child_process';
+import { mcpFind } from './openviking-mcp';
 import { createProxy, ProxyHandle, ProxyOptions } from './proxy';
 import { DshViewProvider } from './view';
 import { detectHarnessUrl, probe } from './detect';
@@ -193,15 +193,16 @@ function ovFindContext(): Promise<string> {
       const editor = vscode.window.activeTextEditor;
       const doc = editor && editor.document;
       const query = (doc && doc.uri.fsPath.split('/').pop()) || (vscode.workspace.workspaceFolders && vscode.workspace.workspaceFolders[0].name) || '当前项目';
-      exec('ov find ' + JSON.stringify(query) + ' --limit 3', { timeout: 3000 }, (err, stdout) => {
-        if (err) {
-          if (!ovWarned) { ovWarned = true; log('info', 'OpenViking 不可用（' + (err as Error).message + '），[Repo Recall] 跳过；如需关闭请设 awakening.dsh.openvikingRecall=false'); }
+      const OV_MCP_URL = 'http://127.0.0.1:1933/mcp';
+      const timer2 = setTimeout(() => { resolve(''); }, 3000);
+      mcpFind(OV_MCP_URL, query, 3).then((recall) => {
+        clearTimeout(timer2);
+        if (!recall) {
+          if (!ovWarned) { ovWarned = true; log('info', 'OpenViking MCP 不可用（' + OV_MCP_URL + '），[Repo Recall] 跳过；如需关闭请设 awakening.dsh.openvikingRecall=false'); }
           resolve(''); return;
         }
-        const head = String(stdout || '').trim();
-        if (!head) { resolve(''); return; }
-        resolve('\n[Repo Recall]\n' + head.slice(0, 2000) + '\n[/Repo Recall]\n');
-      });
+        resolve(recall);
+      }).catch(() => { clearTimeout(timer2); resolve(''); });
     } catch { resolve(''); }
   });
 }
