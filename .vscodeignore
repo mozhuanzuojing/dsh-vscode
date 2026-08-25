@@ -4,7 +4,11 @@ scripts/**
 .vscodeignore
 package-lock.json
 *.log
+*.vsix
 **/*.map
+CONTEXT.md
+RELEASING.md
+tsconfig.json
 
 src/
 dist/scripts/

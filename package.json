@@ -1,11 +1,10 @@
 {
-  "name": "dsh-vscode",
-  "displayName": "DSH Client",
+  "name": "dsh-awakening",
+  "displayName": "DSH Awakening",
   "description": "在 VSCode 辅助侧边栏内嵌 100% 原版 DeepSeek Harness (DSH) Web 界面；点击对话/轨迹里的文件路径直接在 VSCode 编辑器打开。",
   "version": "0.7.5",
-  "publisher": "local",
+  "publisher": "guxgn",
   "license": "MIT",
-  "private": true,
   "repository": {
     "type": "git",
     "url": "https://github.com/mozhuanzuojing/dsh-vscode.git"
