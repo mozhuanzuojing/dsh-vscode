@@ -38,7 +38,7 @@ export async function mcpFind(url: string, query: string, limit = 3): Promise<Mc
   const timer = setTimeout(() => ac.abort(), 3000);
   try {
     if (!initialized) {
-      await mcpPost(url, { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'dsh-vscode', version: '0.7.5' } } }, ac.signal);
+      await mcpPost(url, { jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: '2025-06-18', capabilities: {}, clientInfo: { name: 'dsh-awakening', version: '0.7.6' } } }, ac.signal);
       await mcpPost(url, { jsonrpc: '2.0', method: 'notifications/initialized' }, ac.signal);
       initialized = true;
     }
