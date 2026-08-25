@@ -52,7 +52,7 @@ export function formatEditorContext(s: EditorState): string {
   if (s.selectionText && s.selectionText.trim() !== '') {
     out.push('selection:');
     out.push(clip(s.selectionText, MAX_SELECTION));
-  } else if (s.fullText && s.fullText.length <= MAX_WHOLE_FILE) {
+  } else if (s.fullText && s.lineCount !== undefined && s.lineCount <= MAX_FIRST_LINES && s.fullText.length <= MAX_WHOLE_FILE) {
     out.push('content (full):');
     out.push(s.fullText);
   } else if (s.fullText) {

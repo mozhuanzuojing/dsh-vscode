@@ -25,6 +25,7 @@ let lastRealPort = '';
 let agentRunning = false;
 let agentIdleTimer: ReturnType<typeof setTimeout> | undefined;
 let agentStatusBar: vscode.StatusBarItem | null = null;
+let currentExtId = 'guxgn.dsh-awakening';
 
 const prompt: Prompt = createPrompt({
   showInputBox: (opts) => new Promise<string | undefined>((resolve) => {
@@ -137,7 +138,7 @@ async function moveViewToSecondarySidebar(): Promise<void> {
 }
 
 async function openSettings(): Promise<void> {
-  try { await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:local.dsh-vscode'); }
+  try { await vscode.commands.executeCommand('workbench.action.openSettings', '@ext:' + currentExtId); }
   catch (err) { log('warn', '打开设置失败: ' + (err as Error).message); }
 }
 
@@ -145,7 +146,7 @@ async function openSidebar(): Promise<void> {
   try { await vscode.commands.executeCommand('workbench.view.extension.dsh'); }
   catch (err) { log('warn', '打开 DSH 视图失败: ' + (err as Error).message); }
   try { await vscode.commands.executeCommand('dsh.chatView.focus'); } catch { /* 视图尚未解析 */ }
-  await moveViewToSecondarySidebar();
+  if (config.shouldAutoMove()) await moveViewToSecondarySidebar();
   if (!proxy || !(await probe(proxy.baseUrl, { timeoutMs: 1500 }))) {
     await prompt.promptAndPersist();
   }
@@ -301,6 +302,7 @@ async function sendSelectionToDsh(mode: string): Promise<void> {
 }
 
 export async function activate(context: vscode.ExtensionContext): Promise<void> {
+  currentExtId = context.extension.id;
   output = vscode.window.createOutputChannel('DSH Client');
   context.subscriptions.push(output);
   log('info', 'DSH Client 激活');
@@ -323,7 +325,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('dsh.openSidebar', openSidebar),
     vscode.commands.registerCommand('dsh.refresh', () => { if (provider) provider.refresh(); }),
     vscode.commands.registerCommand('dsh.diagnostics', showDiagnostics),
-    vscode.commands.registerCommand('dsh.openInBrowser', () => { vscode.env.openExternal(vscode.Uri.parse(config.getBaseUrl())); }),
+    vscode.commands.registerCommand('dsh.openInBrowser', () => { vscode.env.openExternal(vscode.Uri.parse((proxy && proxy.baseUrl) || config.getBaseUrl())); }),
     vscode.commands.registerCommand('awakening.openSettings', openSettings),
     vscode.commands.registerCommand('awakening.configureHarnessUrl', () => prompt.promptAndPersist()),
     vscode.commands.registerCommand('awakening.explainSelection', () => sendSelectionToDsh('解释')),
