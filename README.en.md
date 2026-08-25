@@ -75,6 +75,7 @@ code --install-extension dsh-awakening-<ver>.vsix   # or Extensions panel → �
 
 > Source & docs: https://github.com/mozhuanzuojing/dsh-vscode
 > Release process (mandatory review gate before verify & publish): [RELEASING.md](RELEASING.md)
+> Changelog: [CHANGELOG.md](CHANGELOG.md) (latest 0.7.6 · marketplace `guxgn.dsh-awakening`)
 
 Settings:
 

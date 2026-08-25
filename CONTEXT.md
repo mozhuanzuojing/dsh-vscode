@@ -31,3 +31,13 @@
 ## 配置命名空间
 
 所有配置键以 `awakening.dsh.` 为前缀。详见 `src/config.js` 的 `createConfig` 接口。
+
+## 发布 / 市场
+
+- 扩展已发布到 **VS Code Marketplace**：`guxgn.dsh-awakening`（publisher `guxgn`，displayName `DSH Awakening`）。
+- 包名 / 市场 name 为 `dsh-awakening`；GitHub 仓库与目录名仍是 `dsh-vscode`。
+- 本地扩展宿主位置：`~/.vscode-server/extensions/guxgn.dsh-awakening-<version>/`（旧 `local.dsh-vscode-*` 已弃）。
+- 发布 CLI：`vsce-publish`（等价 `VSCE_PAT=$(cat ~/.dsh/vscode-marketplace.pat) npx @vscode/vsce publish`）。
+  - PAT 存放：`~/.dsh/vscode-marketplace.pat`（chmod 600）。
+- 市场保留所有已发版本：只发新版本，不删单个旧版本；勿用 `vsce unpublish`。
+- 打包产出：`dsh-awakening-<ver>.vsix`；更新日志见 [CHANGELOG.md](CHANGELOG.md)。

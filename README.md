@@ -77,6 +77,7 @@ code --install-extension dsh-awakening-<ver>.vsix   # 或在扩展面板 → …
 
 > 源码与使用文档：https://github.com/mozhuanzuojing/dsh-vscode
 > 发布流程（含强制 Review 门禁）：[RELEASING.md](RELEASING.md)
+> 更新日志：[CHANGELOG.md](CHANGELOG.md)（最新 0.7.6 · 市场 `guxgn.dsh-awakening`）
 
 设置：
 

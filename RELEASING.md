@@ -14,7 +14,10 @@
 | 5 | 版本 bump | npm version <ver> -m "..."（自动提交 + 打 tag） |
 | 6 | 打包 | npx -y @vscode/vsce package --out dsh-awakening-<ver>.vsix |
 | 7 | 安装到扩展宿主 | 解压到 ~/.vscode-server/extensions/guxgn.dsh-awakening-<ver>/（或 code --install-extension dsh-awakening-<ver>.vsix），删旧版本，更新 extensions.json |
-| 8 | 发布 | ① VS Code 市场：npx -y @vscode/vsce publish（VSCE_PAT）② 新建 GitHub Release（挂 vsix）+ 删旧 release（仅保留最新） |
+| 8 | 发布 | ① VS Code 市场：vsce-publish 或 npx -y @vscode/vsce publish（VSCE_PAT）② 新建 GitHub Release（挂 vsix）+ 删旧 release（仅保留最新） |
+
+> **发布凭据**：PAT 存于 `~/.dsh/vscode-marketplace.pat`（chmod 600）；发布用 `vsce-publish`（等价 `VSCE_PAT=$(cat ~/.dsh/vscode-marketplace.pat) npx @vscode/vsce publish`）。
+> **市场版本历史**：VS Code Marketplace 会保留已发的每个版本，CLI 不支持「只删某个旧版本」。只发新版本；不要用 `vsce unpublish`（会下架整个扩展）。清旧版本指仓库里的旧 `.vsix` 与本地旧扩展目录。
 
 ## Review 门禁要点
 
@@ -34,5 +37,6 @@
 ## 约定
 
 - 中/英文 README 与代码同步。
+- 每次发布同步更新 CHANGELOG.md；README 安装命令 / 市场 ID / 版本保持一致。
 - Release 只保留最新一个；tag 保留（可选清理）。
 - bump 语义：feat/breaking → minor；fix/doc 为主 → patch；大重构 → major。
