@@ -61,13 +61,18 @@ npm run smoke      # 代理冒烟（对运行中的 harness 验证转发/拦截/
 4. 若 harness 端口不在默认检测范围（3080–3099），设 `awakening.dsh.baseUrl` 显式指定（修改后代理自动重启）。
    - 自动检测失败时，**打开侧边栏会自动弹出输入框**，录入地址后探测确认（判据 `__DSH_BOOT__`）并持久化到设置，下次直接使用。
 
-### 安装打包产物
+### 安装（市场 or 打包产物）
 
-不跑源码、直接装成品：
+**从 VS Code Market 安装（推荐）**：搜索 `DSH Awakening`，或
+```bash
+code --install-extension guxgn.dsh-awakening
+```
+
+**不跑源码、直接装 vsix 成品**：
 
 ```bash
-npx -y @vscode/vsce package --out dsh-vscode-0.1.0.vsix
-code --install-extension dsh-vscode-0.1.0.vsix   # 或在扩展面板 → … → 从 VSIX 安装…
+npx -y @vscode/vsce package --out dsh-awakening-<ver>.vsix
+code --install-extension dsh-awakening-<ver>.vsix   # 或在扩展面板 → … → 从 VSIX 安装…
 ```
 
 > 源码与使用文档：https://github.com/mozhuanzuojing/dsh-vscode

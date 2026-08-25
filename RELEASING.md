@@ -12,9 +12,9 @@
 | 3 | 修复 | 按评审改；重要项改后回到步骤 2 复核 |
 | 4 | 验证 | node --check src/*.js scripts/*.cjs + npm run smoke（需运行中的 harness）；全绿才继续 |
 | 5 | 版本 bump | npm version <ver> -m "..."（自动提交 + 打 tag） |
-| 6 | 打包 | npx -y @vscode/vsce package --out dsh-vscode-<ver>.vsix |
-| 7 | 安装到扩展宿主 | 解压到 ~/.vscode-server/extensions/local.dsh-vscode-<ver>/，删旧版本，更新 extensions.json |
-| 8 | 发布 | 新建 GitHub Release（挂 vsix）+ 删旧 release（仅保留最新） |
+| 6 | 打包 | npx -y @vscode/vsce package --out dsh-awakening-<ver>.vsix |
+| 7 | 安装到扩展宿主 | 解压到 ~/.vscode-server/extensions/guxgn.dsh-awakening-<ver>/（或 code --install-extension dsh-awakening-<ver>.vsix），删旧版本，更新 extensions.json |
+| 8 | 发布 | ① VS Code 市场：npx -y @vscode/vsce publish（VSCE_PAT）② 新建 GitHub Release（挂 vsix）+ 删旧 release（仅保留最新） |
 
 ## Review 门禁要点
 

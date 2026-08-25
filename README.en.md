@@ -59,13 +59,18 @@ Then in VS Code:
 4. If the harness port is outside the default detection range (3080-3099), set `awakening.dsh.baseUrl` explicitly (the proxy restarts automatically on change).
   - If auto-detection fails, **opening the sidebar shows an input box** — enter the URL, it is probed (marker `__DSH_BOOT__`) and persisted to settings for next time.
 
-### Installing the packaged build
+### Install (marketplace or packaged build)
 
-Install as a vsix without running from source:
+**Install from the VS Code marketplace (recommended)**: search for `DSH Awakening`, or
+```bash
+code --install-extension guxgn.dsh-awakening
+```
+
+**Install a prebuilt vsix** (without building from source):
 
 ```bash
-npx -y @vscode/vsce package --out dsh-vscode-0.1.0.vsix
-code --install-extension dsh-vscode-0.1.0.vsix   # or Extensions panel → … → Install from VSIX…
+npx -y @vscode/vsce package --out dsh-awakening-<ver>.vsix
+code --install-extension dsh-awakening-<ver>.vsix   # or Extensions panel → … → Install from VSIX…
 ```
 
 > Source & docs: https://github.com/mozhuanzuojing/dsh-vscode
