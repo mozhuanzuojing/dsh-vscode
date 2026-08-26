@@ -92,10 +92,10 @@ code --install-extension dsh-awakening-<ver>.vsix   # 或在扩展面板 → …
 
 | 命令 | 作用 |
 | --- | --- |
-| Open DSH Sidebar | 聚焦 DSH 视图（辅助侧边栏） |
+| DSH | 聚焦 DSH 视图（辅助侧边栏） |
 | （状态栏 `DSH :port` 点击） | 打开「DSH: 诊断」——端口检测页 + 配置入口 |
 | Awakening: 打开设置 | 打开本扩展的 VS Code 设置页（配置入口） |
-| Awakening: 配置 harness 地址 | 弹输入框重新录入/修改 harness 地址（编辑器标题栏齿轮、诊断面板、命令面板均可触发） |
+| Awakening: 配置 harness 地址 | 弹输入框重新录入/修改 harness 地址（仅诊断面板「DSH: 诊断」可触发） |
 | 用 DSH 解释/修复/重构选中内容 | 编辑器右键：把选中文本发给最近 DSH 会话执行对应动作 |
 | DSH: 刷新界面 | 重新加载 iframe |
 | DSH: 诊断 | 显示代理端口、harness 可达性、HTTP/WS/openPath/pickDirectory 计数 |

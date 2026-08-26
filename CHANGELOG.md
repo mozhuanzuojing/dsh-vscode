@@ -5,6 +5,14 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.8] - 2026-08-26
+
+### ✨ 界面调整
+
+- **移除编辑器标题栏「Awakening: 配置 harness 地址」齿轮按钮**：配置入口仅保留「DSH: 诊断」面板中的 quick-pick。
+- **标题栏「Open DSH Sidebar」按钮缩短为「DSH」**：命令 title 由 `Open DSH Sidebar` 改为 `DSH`。
+- README / README.en 命令表同步更新。
+
 ## [0.7.6] - 2026-08-25
 
 ### 🐛 修复（Review：遗漏 / 因果颠倒）
