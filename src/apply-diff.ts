@@ -50,13 +50,22 @@ export function createApplyDiff(vscodeRef: typeof vscode, options: ApplyDiffOpti
     return map;
   }
 
-  /** 把快照写到临时文件，供 diff 左侧（改前）使用。 */
+  /** djb2 字符串 hash：给快照临时文件名加唯一后缀，避免跨目录同名/中文名碰撞。 */
+  function hashOf(s: string): string {
+    let h = 5381;
+    for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) >>> 0;
+    return h.toString(36);
+  }
+
+  let snapshotSeq = 0;
+  /** 把快照写到临时文件，供 diff 左侧（改前）使用；文件名含 basename + fsPath hash + 递增序号，避免碰撞。 */
   function writeSnapshotTmp(fsPath: string, content: string): string {
     const tmpDir = path.join(os.tmpdir(), 'dsh-awakening-snapshots');
     fs.mkdirSync(tmpDir, { recursive: true });
     const base = path.basename(fsPath);
-    const safe = base.replace(/[^a-zA-Z0-9._-]/g, '_');
-    const tmpPath = path.join(tmpDir, safe + '.snapshot');
+    const safe = base.replace(/[^a-zA-Z0-9._-]/g, '_').slice(0, 60) || 'file';
+    const uniq = hashOf(fsPath) + '-' + (++snapshotSeq);
+    const tmpPath = path.join(tmpDir, safe + '.' + uniq + '.snapshot');
     fs.writeFileSync(tmpPath, content, 'utf8');
     return tmpPath;
   }
@@ -98,10 +107,10 @@ export function createApplyDiff(vscodeRef: typeof vscode, options: ApplyDiffOpti
   }
 
   /** 组装文件列表 QuickPick items（顶部批量项 + 每个变更文件）。 */
-  function buildItems(count: number): { label: string; description: string; alwaysShow: boolean; fsPath?: string; all?: boolean }[] {
-    const items: { label: string; description: string; alwaysShow: boolean; fsPath?: string; all?: boolean }[] = [
-      { label: '$(check-all) 全部应用', description: '应用全部 ' + count + ' 个变更', alwaysShow: true, all: true },
-      { label: '$(circle-slash) 全部忽略', description: '忽略全部 ' + count + ' 个变更（不应用）', alwaysShow: true, all: true },
+  function buildItems(count: number): { label: string; description: string; alwaysShow: boolean; fsPath?: string; applyAll?: boolean; ignoreAll?: boolean }[] {
+    const items: { label: string; description: string; alwaysShow: boolean; fsPath?: string; applyAll?: boolean; ignoreAll?: boolean }[] = [
+      { label: '$(check-all) 全部应用', description: '应用全部 ' + count + ' 个变更', alwaysShow: true, applyAll: true },
+      { label: '$(circle-slash) 全部忽略', description: '忽略全部 ' + count + ' 个变更（不应用）', alwaysShow: true, ignoreAll: true },
     ];
     for (const [fsPath] of pending.entries()) items.push({ label: '$(diff) ' + path.basename(fsPath), description: fsPath, alwaysShow: true, fsPath });
     return items;
@@ -120,8 +129,8 @@ export function createApplyDiff(vscodeRef: typeof vscode, options: ApplyDiffOpti
           matchOnDescription: true,
         });
         if (!picked) { log('info', '确认流：用户忽略（Esc），不做任何应用'); return; }
-        if ((picked as { all?: boolean }).all) {
-          if ((picked as { label?: string }).label && (picked as { label: string }).label.indexOf('全部应用') === 0) await applyAll();
+        if ((picked as { applyAll?: boolean }).applyAll || (picked as { ignoreAll?: boolean }).ignoreAll) {
+          if ((picked as { applyAll?: boolean }).applyAll) await applyAll();
           else ignoreAll();
           return;
         }
