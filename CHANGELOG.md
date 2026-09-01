@@ -5,6 +5,14 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.10] - 2026-09-01
+
+### 🐛 修复（Review 门禁：Critical/Important）
+
+- **C1（Critical）**：顶部「全部应用」被误判为「全部忽略」——因批量项按 label 前缀匹配，codicon 前缀破坏匹配，导致点「全部应用」实际执行「全部忽略」。改为布尔标记（`applyAll`/`ignoreAll`）分发。
+- **I1（Important）**：diff 快照临时文件仅用 basename，跨目录同名/中文名会碰撞；改为 basename + fsPath hash + 递增序号唯一后缀。
+- **m5**：openviking-mcp `clientInfo` 版本同步到 0.7.10。
+
 ## [0.7.9] - 2026-09-01
 
 ### 🧹 界面精简
