@@ -39,7 +39,7 @@ Embed the original DeepSeek Harness (DSH) Web interface in the VS Code secondary
 - 📁 Directory selection → native VS Code picker (Cursor-like)
 - 🔝 Single top line: view title `DSH Awakening :<proxy>→<real>` shows the proxy→real port mapping; a toast confirms connection to the real port on switch
 - 🩺 Clicking the status-bar `DSH :port` opens `DSH: 诊断` (port detection page + config entry); `DSH: 在浏览器打开原版界面` opens the original UI in a browser for comparison
-- 🧠 **Editor integration**: ① prompts auto-include the active file/selection ② agent-written files sync to the editor (safe: never overwrites unsaved edits) ③ editor context-menu sends selection to DSH ④ context reflects the current selection in real time
+- 🧠 **Editor integration**: ① the editor context-menu "解释/修复/重构" injects `[User Input]` context (workspace/relative path/language/lines/content clipped by size; direct UI prompts do NOT inject, to avoid stale-context buildup) ② agent-written files show a **diff preview → confirm/ignore** before applying (never overwrites unsaved edits; 30s turn window) ③ context reflects the current selection in real time
 
 ## Quick start
 

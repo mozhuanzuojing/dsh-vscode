@@ -15,9 +15,9 @@
 | `src/prompt.ts` | 交互式补录流程，`createPrompt(deps)` | 注入 fake UI 适配器 |
 | `src/proxy.ts` | HTTP 反向代理 + WS 透传 + RPC 拦截 | 完整冒烟 |
 | `src/detect.ts` | Harness 端口探测，`probe`/`detectHarnessUrl` | 已可独立测试 |
-| `src/proxy.ts` 可为扩展 tap mux 帧（onMuxFrame）→ 回合状态/审批/问题；editorContext.recall 直连 OpenViking MCP（mcpFind，无需 ov CLI） |
+| `src/proxy.ts` 可为扩展 tap mux 帧（onMuxFrame）→ 审批/问题；editorContext.recall 直连 OpenViking MCP（mcpFind，无需 ov CLI） |
 | `src/view.ts` | Webview iframe 视图（标题 `DSH Awakening :代理→真实`） | 需 VS Code 宿主 |
-| `src/apply-diff.ts` | ② 应用 diff：agent 写文件后同步到编辑器（isDirty 保护 + 30s 窗口） | 需 VS Code 宿主 |
+| `src/apply-diff.ts` | ② 应用 diff（确认制）：agent 写文件后弹「变更列表 → diff 预览 → 应用/忽略」（isDirty 保护 + 30s 回合窗口） | 需 VS Code 宿主 |
 | `src/extension.ts` | 扩展入口：编排、激活、命令、诊断 | 需 VS Code 宿主 |
 
 ## 关键协议

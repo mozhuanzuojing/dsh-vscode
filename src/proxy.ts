@@ -165,13 +165,23 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
     let raw = ''; for await (const chunk of req) raw += chunk;
     let envelope: any = {}; try { envelope = JSON.parse(raw || '{}'); } catch { envelope = {}; }
     if (envelope && envelope.payload && typeof envelope.payload.sessionId === 'string') proxy.lastSessionId = envelope.payload.sessionId;
-    onSessionPrompt();
-    let block = editorContext && editorContext.block;
-    if (editorContext && editorContext.recall) {
-      try {
-        const recall = await Promise.race([editorContext.recall(), new Promise<string>((resolve) => setTimeout(() => resolve(''), 3000))]);
-        if (recall) block = (block || '') + recall;
-      } catch { /* recall 失败忽略 */ }
+    // A2a：只有编辑器右键命令（带 _dshEditorContext 标记）才注入上下文并开启应用 diff 窗口；
+    // DSH 界面直接输入的普通 prompt 不注入、不 arm，避免会话历史堆积脏上下文。
+    const wantsEditorContext = !!(envelope && envelope.payload && (envelope.payload as any)._dshEditorContext);
+    // 标记是客户端扩展私有的，转发给上游 harness 前必须删除，避免污染 session.prompt 的 payload（严格 schema 会因未知字段报错）。
+    if (envelope && envelope.payload && (envelope.payload as any)._dshEditorContext) delete (envelope.payload as any)._dshEditorContext;
+    let block = '';
+    if (wantsEditorContext) {
+      onSessionPrompt();
+      block = editorContext && editorContext.block;
+      if (editorContext && editorContext.recall) {
+        try {
+          const recall = await Promise.race([editorContext.recall(), new Promise<string>((resolve) => setTimeout(() => resolve(''), 3000))]);
+          if (recall) block = (block || '') + recall;
+        } catch { /* recall 失败忽略 */ }
+      }
+    } else {
+      logger('info', 'A2a：普通 prompt 不注入编辑器上下文');
     }
     if (block && envelope && Array.isArray(envelope.payload && envelope.payload.content)) {
       envelope.payload.content.unshift({ type: 'text', text: block });

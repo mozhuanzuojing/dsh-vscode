@@ -5,6 +5,18 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.9] - 2026-09-01
+
+### 🧹 界面精简
+
+- **移除状态栏「DSH 回合中 / DSH 空闲」指示**：连同 `dsh.cancelSession` 命令一起移除（其唯一入口即该状态栏）；审批/澄清下沉、OpenViking 回忆等能力不变。
+- README / CONTEXT 描述同步更新。
+
+### ✨ 功能增强
+
+- **应用 diff 改为确认制**：agent 写文件后不再直接同步到编辑器，而是弹「变更文件列表 → diff 预览 → 应用/忽略」确认流（沿用 30s 回合窗口 + isDirty 保护，绝不覆盖未保存修改）；支持**一键全部应用 / 全部忽略**。
+- **上下文按需注入（A2a）**：`[User Input]` 上下文仅在编辑器右键「解释/修复/重构」时注入（带 `_dshEditorContext` 标记）；DSH 界面直接输入的普通 prompt 不再自动注入，避免会话历史堆积脏上下文。
+
 ## [0.7.8] - 2026-08-26
 
 ### ✨ 界面调整

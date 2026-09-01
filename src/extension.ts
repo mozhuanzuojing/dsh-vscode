@@ -22,9 +22,6 @@ let moveTimer: ReturnType<typeof setTimeout> | undefined;
 let restartQueue: Promise<unknown> = Promise.resolve(null);
 let shuttingDown = false;
 let lastRealPort = '';
-let agentRunning = false;
-let agentIdleTimer: ReturnType<typeof setTimeout> | undefined;
-let agentStatusBar: vscode.StatusBarItem | null = null;
 let currentExtId = 'guxgn.dsh-awakening';
 
 const prompt: Prompt = createPrompt({
@@ -221,16 +218,10 @@ async function respondViaProxy(rpcId: string, value: unknown): Promise<boolean> 
   } catch (err) { vscode.window.showErrorMessage('DSH Client: 应答失败 ' + (err as Error).message); return false; }
 }
 
-/** #1/#2/#3/#4 共享底座回调：tap mux 帧 → 回合状态 / 审批下沉 / 问题下沉。 */
+/** 共享底座回调：tap mux 帧 → 审批下沉 / 问题下沉。 */
 function handleMuxFrame(frame: { type: string; payload?: unknown; rpcId?: string }): void {
   if (!frame || !frame.type) return;
   const p = (frame.payload || {}) as { sessionId?: string; approvalId?: string; toolName?: string; questions?: { id?: string; question?: string; options?: { label: string; description?: string }[]; multiSelect?: boolean }[] };
-  if (frame.type === 'session/event' || frame.type === 'session/queue' || frame.type === 'session/jobs' || frame.type === 'session/projection' || frame.type === 'approval/requested' || frame.type === 'question/requested') {
-    agentRunning = true;
-    if (agentStatusBar) { agentStatusBar.text = '$(sync~spin) DSH 回合中'; agentStatusBar.show(); }
-    if (agentIdleTimer) clearTimeout(agentIdleTimer);
-    agentIdleTimer = setTimeout(() => { agentRunning = false; if (agentStatusBar) { agentStatusBar.text = '$(check) DSH 空闲'; agentStatusBar.show(); } }, 20000);
-  }
   if (frame.type === 'approval/requested' && p.sessionId && p.approvalId && frame.rpcId) {
     vscode.window.showWarningMessage('DSH 需要审批：工具 ' + (p.toolName || '?'), { modal: true }, '允许一次', '拒绝').then((choice) => {
       const outcome = choice === '允许一次' ? 'allowed-once' : 'rejected';
@@ -259,22 +250,6 @@ function handleMuxFrame(frame: { type: string; payload?: unknown; rpcId?: string
   }
 }
 
-/** #1 取消当前回合：经本地代理发起 session.cancel（与 UI 同通道，头规范化）。 */
-async function cancelSession(): Promise<void> {
-  if (!proxy || !proxy.baseUrl || !proxy.lastSessionId) { vscode.window.showWarningMessage('DSH Client: 没有活动会话可取消。'); return; }
-  try {
-    const res = await fetch(proxy.origin + '/api/session.cancel', {
-      method: 'POST', headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type: 'client-request', rpcId: 'cancel-' + Date.now(), method: 'session.cancel', payload: { sessionId: proxy.lastSessionId } }),
-    });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    const body: any = await res.json().catch(() => ({}));
-    if (body && body.result && body.result.ok === false) throw new Error('服务器拒绝: ' + JSON.stringify(body.result.error || {}));
-    agentRunning = false; if (agentStatusBar) { agentStatusBar.text = '$(check) DSH 空闲'; agentStatusBar.show(); }
-    vscode.window.showInformationMessage('DSH Client: 已发送取消。');
-  } catch (err) { vscode.window.showErrorMessage('DSH Client: 取消失败 ' + (err as Error).message); }
-}
-
 /** ③ 选区命令：把当前选中文本 + 模式词发给最近 DSH 会话。 */
 async function sendSelectionToDsh(mode: string): Promise<void> {
   const editor = vscode.window.activeTextEditor;
@@ -287,11 +262,12 @@ async function sendSelectionToDsh(mode: string): Promise<void> {
   }
   const promptText = mode + '（选中内容）：\n\n' + text.slice(0, 4000);
   try {
-    // 走本地代理端口，让代理统一改写信任围栏头 + 注入编辑器上下文（文件/行号），并经 onSessionPrompt arm apply-diff
+    // 走本地代理端口，让代理统一改写信任围栏头 + 注入编辑器上下文（文件/行号），并经 onSessionPrompt arm apply-diff。
+    // _dshEditorContext 标记：仅右键命令注入上下文并开启 diff 确认窗口；界面直接输入的 prompt 不注入（A2a）。
     const res = await fetch(proxy.origin + '/api/session.prompt', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type: 'client-request', rpcId: 'ed-' + Date.now(), method: 'session.prompt', payload: { sessionId: proxy.lastSessionId, mode: 'queue', content: [{ type: 'text', text: promptText }] } }),
+      body: JSON.stringify({ type: 'client-request', rpcId: 'ed-' + Date.now(), method: 'session.prompt', payload: { sessionId: proxy.lastSessionId, mode: 'queue', _dshEditorContext: true, content: [{ type: 'text', text: promptText }] } }),
     });
     if (!res.ok) throw new Error('HTTP ' + res.status);
     await vscode.commands.executeCommand('dsh.chatView.focus');
@@ -306,13 +282,6 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
   output = vscode.window.createOutputChannel('DSH Client');
   context.subscriptions.push(output);
   log('info', 'DSH Client 激活');
-
-  agentStatusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 98);
-  agentStatusBar.text = '$(check) DSH 空闲';
-  agentStatusBar.command = 'dsh.cancelSession';
-  agentStatusBar.tooltip = 'DSH 回合状态；点击取消当前回合';
-  agentStatusBar.show();
-  context.subscriptions.push(agentStatusBar);
 
   statusBar = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Left, 100);
   statusBar.text = '$(browser) DSH';
@@ -330,8 +299,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('awakening.configureHarnessUrl', () => prompt.promptAndPersist()),
     vscode.commands.registerCommand('awakening.explainSelection', () => sendSelectionToDsh('解释')),
     vscode.commands.registerCommand('awakening.fixSelection', () => sendSelectionToDsh('修复')),
-    vscode.commands.registerCommand('awakening.refactorSelection', () => sendSelectionToDsh('重构')),
-    vscode.commands.registerCommand('dsh.cancelSession', cancelSession)
+    vscode.commands.registerCommand('awakening.refactorSelection', () => sendSelectionToDsh('重构'))
   );
 
   context.subscriptions.push(
@@ -373,5 +341,4 @@ export async function deactivate(): Promise<void> {
   shuttingDown = true;
   await restartQueue.catch(() => {});
   if (proxy) { await proxy.close().catch(() => {}); proxy = null; }
-  if (agentIdleTimer) clearTimeout(agentIdleTimer);
 }
