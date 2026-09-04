@@ -5,6 +5,17 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.11] - 2026-09-03
+
+### 🔧 适配 DSH 0.1.2-rc.1（namespaced Remote RPC）
+
+DSH 0.1.2 把 flat `/api/ns.method` RPC gateway 改为 namespaced Remote 协议，文件打开与目录选择接口更名。proxy 需同步拦截新端点，否则 VSCode 编辑器联动（点击 DSH 文件路径打开、目录选择器）失效。
+
+- **C1（Critical）**：`host.openPath`（文件打开）→ `session.openWorkspacePath`。请求仍为 `{path}`，应答 `{opened:true}`，拦截逻辑不变，仅改端点匹配。
+- **C1（Critical）**：`host.pickDirectory`（目录选择）→ `directoryPicker.pick`。应答 value 由 `{path: string|null}` 改为**裸字符串路径（或 null）**，拦截应答同步改为裸字符串。
+- **次要**：WS 事件流测试引用 `/api/events.host` 改为 `/api/events.mux`（proxy 本就按 `events.mux` 透传，测试脚本同步）。
+- proxy-smoke / probe 测试脚本端点与新契约同步。
+
 ## [0.7.10] - 2026-09-01
 
 ### 🐛 修复（Review 门禁：Critical/Important）

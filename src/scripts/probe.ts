@@ -28,24 +28,24 @@ async function main() {
     `[2] POST /api/session.list -> ${rpc.status} | type=${envelope.type} ok=${envelope.result && envelope.result.ok}`
   );
 
-  // 3. WebSocket 下行流（events.host）
+  // 3. WebSocket 下行流（events.mux）
   await new Promise((resolve) => {
-    const url = BASE.replace(/^http/, 'ws') + '/api/events.host';
+    const url = BASE.replace(/^http/, 'ws') + '/api/events.mux';
     const ws = new WebSocket(url, { headers: { origin: BASE } });
     const timer = setTimeout(() => {
-      console.log('[3] WS events.host -> 已连接，1s 内无帧（正常，事件驱动）');
+      console.log('[3] WS events.mux -> 已连接，1s 内无帧（正常，事件驱动）');
       try { ws.close(); } catch {}
       resolve();
     }, 1000);
-    ws.on('open', () => console.log('[3] WS events.host -> 已连接'));
+    ws.on('open', () => console.log('[3] WS events.mux -> 已连接'));
     ws.on('message', (data) => {
-      console.log(`[3] WS events.host -> 收到帧: ${String(data).slice(0, 120)}`);
+      console.log(`[3] WS events.mux -> 收到帧: ${String(data).slice(0, 120)}`);
       clearTimeout(timer);
       try { ws.close(); } catch {}
       resolve();
     });
     ws.on('error', (err) => {
-      console.log(`[3] WS events.host -> 失败: ${err.message}`);
+      console.log(`[3] WS events.mux -> 失败: ${err.message}`);
       clearTimeout(timer);
       resolve();
     });

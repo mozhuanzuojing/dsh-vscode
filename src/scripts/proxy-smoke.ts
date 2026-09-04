@@ -59,15 +59,15 @@ async function main() {
     check('RPC 转发 + Origin 改写', false, err.message);
   }
 
-  // 3. openPath 拦截（不回源，本地应答 harness 契约）
+  // 3. openPath 拦截（不回源，本地应答 harness 契约；0.1.2 为 session.openWorkspacePath）
   try {
-    const res = await fetch(proxy.origin + '/api/host.openPath', {
+    const res = await fetch(proxy.origin + '/api/session.openWorkspacePath', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         type: 'client-request',
         rpcId: 'smoke-open',
-        method: 'host.openPath',
+        method: 'session.openWorkspacePath',
         payload: { path: '/tmp/dsh-smoke.txt' },
       }),
     });
@@ -84,58 +84,58 @@ async function main() {
     check('openPath 拦截', false, err.message);
   }
 
-  // 4. pickDirectory 拦截：选中（回 path）
+  // 4. pickDirectory 拦截：选中（回 path；0.1.2 为 directoryPicker.pick，value 为裸字符串）
   try {
     picked = '/home/g/project/dsh1';
-    const res = await fetch(proxy.origin + '/api/host.pickDirectory', {
+    const res = await fetch(proxy.origin + '/api/directoryPicker.pick', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type: 'client-request', rpcId: 'smoke-pick-1', method: 'host.pickDirectory', payload: {} }),
+      body: JSON.stringify({ type: 'client-request', rpcId: 'smoke-pick-1', method: 'directoryPicker.pick', payload: {} }),
     });
     const env = await res.json();
     check(
       'pickDirectory 拦截（选中）',
       res.status === 200 &&
         env.result && env.result.ok === true &&
-        env.result.value && env.result.value.path === '/home/g/project/dsh1',
+        env.result.value === '/home/g/project/dsh1',
       JSON.stringify(env.result || env)
     );
   } catch (err) {
     check('pickDirectory 拦截（选中）', false, err.message);
   }
 
-  // 4b. pickDirectory 拦截：取消（回 path:null，与 harness 原生行为一致）
+  // 4b. pickDirectory 拦截：取消（回 null，与 harness 原生行为一致）
   try {
     picked = null;
-    const res = await fetch(proxy.origin + '/api/host.pickDirectory', {
+    const res = await fetch(proxy.origin + '/api/directoryPicker.pick', {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ type: 'client-request', rpcId: 'smoke-pick-2', method: 'host.pickDirectory', payload: {} }),
+      body: JSON.stringify({ type: 'client-request', rpcId: 'smoke-pick-2', method: 'directoryPicker.pick', payload: {} }),
     });
     const env = await res.json();
     check(
       'pickDirectory 拦截（取消）',
-      res.status === 200 && env.result && env.result.ok === true && env.result.value && env.result.value.path === null,
+      res.status === 200 && env.result && env.result.ok === true && env.result.value === null,
       JSON.stringify(env.result || env)
     );
   } catch (err) {
     check('pickDirectory 拦截（取消）', false, err.message);
   }
 
-  // 5. WS 透传（events.host；恶意 Origin 也应被改写后放行）
+  // 5. WS 透传（events.mux；恶意 Origin 也应被改写后放行）
   await new Promise((resolve) => {
-    const url = proxy.origin.replace(/^http/, 'ws') + '/api/events.host';
+    const url = proxy.origin.replace(/^http/, 'ws') + '/api/events.mux';
     const ws = new WebSocket(url, { headers: { origin: 'http://evil.example' } });
     let frames = 0;
     let finished = false;
     const finish = (ok, detail) => {
       if (finished) return;
       finished = true;
-      check('WS 透传 events.host', ok, detail);
+      check('WS 透传 events.mux', ok, detail);
       resolve();
     };
     const timer = setTimeout(() => finish(true, `连接保持 1.2s，${frames} 帧`), 1200);
-    ws.on('open', () => console.log('      WS events.host 已连接'));
+    ws.on('open', () => console.log('      WS events.mux 已连接'));
     ws.on('message', () => { frames += 1; });
     ws.on('close', () => {
       clearTimeout(timer);
@@ -151,7 +151,7 @@ async function main() {
   await (async () => {
     let forwardedHits = 0;
     const mock = http.createServer((req, res) => {
-      if (req.method === 'POST' && req.url === '/api/host.pickDirectory') {
+      if (req.method === 'POST' && req.url === '/api/directoryPicker.pick') {
         forwardedHits += 1;
         let raw = '';
         req.on('data', (c) => { raw += c; });
@@ -161,7 +161,7 @@ async function main() {
           const body = JSON.stringify({
             type: 'server-response',
             rpcId: env.rpcId || '',
-            result: { ok: true, value: { path: '/mock/forwarded' } },
+            result: { ok: true, value: '/mock/forwarded' },
           });
           res.writeHead(200, { 'content-type': 'application/json' });
           res.end(body);
@@ -174,7 +174,7 @@ async function main() {
     await new Promise((resolve) => mock.listen(0, '127.0.0.1', resolve));
     const mockBase = `http://127.0.0.1:${mock.address().port}`;
 
-    // 关闭拦截：host.pickDirectory 应原样转发到上游
+    // 关闭拦截：directoryPicker.pick 应原样转发到上游
     const off = await createProxy({
       baseUrl: mockBase,
       interceptPickDirectory: false,
@@ -182,15 +182,15 @@ async function main() {
       onPickDirectory: async () => '/should-not-be-used',
     }).start();
     try {
-      const res = await fetch(off.origin + '/api/host.pickDirectory', {
+      const res = await fetch(off.origin + '/api/directoryPicker.pick', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
-        body: JSON.stringify({ type: 'client-request', rpcId: 'smoke-fwd', method: 'host.pickDirectory', payload: {} }),
+        body: JSON.stringify({ type: 'client-request', rpcId: 'smoke-fwd', method: 'directoryPicker.pick', payload: {} }),
       });
       const env = await res.json();
       check(
         'pickDirectory 降级开关=关 → 转发上游',
-        forwardedHits === 1 && env.result && env.result.ok === true && env.result.value.path === '/mock/forwarded',
+        forwardedHits === 1 && env.result && env.result.ok === true && env.result.value === '/mock/forwarded',
         `hits=${forwardedHits}`
       );
     } catch (err) {

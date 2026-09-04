@@ -2,8 +2,12 @@ import http from 'node:http';
 import { WebSocket, WebSocketServer, RawData } from 'ws';
 
 export const DEFAULT_BASE_URL = 'http://127.0.0.1:3082';
-const OPEN_PATH_RE = /^\/api\/host\.openPath$/;
-const PICK_DIRECTORY_RE = /^\/api\/host\.pickDirectory$/;
+// DSH 0.1.2-rc.1 moved the flat RPC gateway to namespaced Remote methods:
+//   openPath:   /api/host.openPath  -> /api/session.openWorkspacePath
+//   pickDir:    /api/host.pickDirectory -> /api/directoryPicker.pick
+//   prompt:     /api/session.prompt  (unchanged)
+const OPEN_PATH_RE = /^\/api\/session\.openWorkspacePath$/;
+const PICK_DIRECTORY_RE = /^\/api\/directoryPicker\.pick$/;
 const SESSION_PROMPT_RE = /^\/api\/session\.prompt$/;
 
 /** 逐跳头（不得原样转发）；host/origin/referer 由代理统一改写。 */
@@ -141,7 +145,9 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
     try {
       const path = await onPickDirectory();
       if (path !== null && path !== undefined) stats.pickedPaths.push(path);
-      result = { ok: true, value: { path: path ?? null } };
+      // DSH 0.1.2: `directoryPicker.pick` returns the chosen absolute path string
+      // (or null on cancel) as the Remote value, NOT `{path}`.
+      result = { ok: true, value: path ?? null };
     } catch (err) {
       stats.errors += 1;
       result = { ok: false, error: { code: 'directory-picker-unavailable', message: 'vscode 目录选择失败: ' + String((err as Error).message), details: { capability: 'vscode' } } };

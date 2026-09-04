@@ -3,9 +3,10 @@
 ## 核心概念
 
 - **Harness** — DeepSeek Harness (DSH) 后端服务，运行在 `dsh web --port <port>`。提供 Web UI、`/api` RPC 端点、WebSocket 事件下行流。需要在 VSCode 扩展激活前/同时运行。
-- **Proxy** — 本地反向代理（`src/proxy.js`），在 VSCode 扩展宿主内启动一个随机环回端口 HTTP 服务器，把 iframe 的请求转发到 Harness，拦截 `host.openPath` 和 `host.pickDirectory` RPC，并双向透传 WebSocket 事件流。
-- **Config 模块** — 封装 `awakening.dsh.*` 配置命名空间的读取与校验（`src/config.js`），通过注入的 `getConfiguration` 函数访问 VS Code 配置。不包含编排/UI 逻辑。
-- **Prompt 模块** — 交互式 Harness 地址补录（`src/prompt.js`），通过注入的适配器（`showInputBox`、`probe`、`persistUrl` 等）隔离 UI 副作用。流程逻辑可单测。
+- **Proxy** — 本地反向代理（`src/proxy.ts`），在 VSCode 扩展宿主内启动一个随机环回端口 HTTP 服务器，把 iframe 的请求转发到 Harness，拦截 `session.openWorkspacePath` / `directoryPicker.pick` / `session.prompt` RPC，并双向透传 WebSocket 事件流（tap mux 帧）。
+- **Config 模块** — 封装 `awakening.dsh.*` 配置命名空间的读取与校验（`src/config.ts`），通过注入的 `getConfiguration` 函数访问 VS Code 配置。不包含编排/UI 逻辑。
+- **Prompt 模块** — 交互式 Harness 地址补录（`src/prompt.ts`），通过注入的适配器（`showInputBox`、`probe`、`persistUrl` 等）隔离 UI 副作用。流程逻辑可单测。
+- **审批 / 问题 UI** — 扩展向用户询问的交互面：审批（approval）与澄清问题（question），经 Proxy tap mux 帧 `onMuxFrame` 分发到处理器，再经 `respondViaProxy` 回写应答。
 
 ## 模块职责
 
@@ -22,10 +23,10 @@
 
 ## 关键协议
 
-- **RPC 信封**：`client-request` (POST) → `server-response`，路径 `/api/<method>`
-- **openPath**：payload `{path:string}`，value `{opened:true}`
-- **pickDirectory**：payload `{}`，value `{path:string|null}`（null=取消）
-- **事件下行流**：WS `/api/events.mux` / `/api/events.host`
+- **RPC 信封**：`client-request` (POST) → `server-response`，路径 `/api/<method>`（0.1.2 起为 namespaced Remote method）
+- **openPath**：`session.openWorkspacePath`，payload `{path:string}`，value `{opened:true}`
+- **pickDirectory**：`directoryPicker.pick`，payload `{}`，value **裸字符串路径（或 null 取消）**
+- **事件下行流**：WS `/api/events.mux`
 - **信任围栏**：Harness 校验 Host 为环回/受信 + Origin 同源；Proxy 统一改写 Host/Origin/Referer
 
 ## 配置命名空间
