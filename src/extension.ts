@@ -113,7 +113,7 @@ async function restartProxy(): Promise<ProxyHandle> {
     // launch token 已在 resolveHarnessBaseUrl 里单列（url 已是干净 origin）。
     currentLaunchToken = resolved.launchToken;
     proxy = await createProxy({
-      baseUrl: resolved.url, interceptPickDirectory, editorContext,
+      baseUrl: resolved.url, launchToken: currentLaunchToken, interceptPickDirectory, editorContext,
       onOpenPath: openPathInVscode, onPickDirectory: pickDirectoryInVscode,
       onSessionPrompt: () => { if (applyDiff) applyDiff.armTurnWindow(); },
       onMuxFrame: handleMuxFrame,
@@ -328,7 +328,9 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   provider = new DshViewProvider({
     getOrigin: () => (proxy ? proxy.origin : ''),
-    getLaunchToken: () => currentLaunchToken,
+    // 不依赖可能滞后的 currentLaunchToken（view 可能在 restartProxy 设 token 前渲染）；
+    // 直接从配置实时提取 token，确保 iframe 首次加载就带。
+    getLaunchToken: () => (currentLaunchToken || splitLaunchToken(config.getBaseUrl()).launchToken),
     getStatus: () => (proxy ? { origin: proxy.origin, baseUrl: proxy.baseUrl, detected: proxy.detectedBaseUrl !== false } : null),
     logger: log,
   });

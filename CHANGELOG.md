@@ -5,6 +5,16 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.16] - 2026-09-03
+
+### 🔐 proxy 预取 launch-token 会话 cookie（修复 iframe 仍 authentication required）
+
+0.7.15 修好 activate 崩溃后，iframe 仍偶发 `authentication required`——因为 VSCode webview 的 iframe 加载 `?token=` 时拿到 303 + set-cookie 但**不可靠地保存/发送跨源 cookie**，跟随到 `/` 时无 cookie → harness 401。
+
+- **proxy 层预取**：`createProxy` 增加 `launchToken`，启动后 lazy 用 token 访问 `baseUrl/?token=` 换 `dsh-auth-*` 会话 cookie 缓存；**转发所有 Web 请求时带该 cookie**。iframe 发普通 `/` 请求即可认证（不再依赖 iframe 的 303/cookie 交换）。
+- 端到端验证：proxy(launchToken) → iframe 普通 `/` → 200 + `__DSH_BOOT__`。
+- `iframeSrc` 首次仍带 `/?token=`（换 cookie 兜底），但主路径由 proxy cookie 承载。
+
 ## [0.7.15] - 2026-09-03
 
 ### 🐛 修复 activate 崩溃：editor-context 的 getText 用 vscode.Range

@@ -28,6 +28,9 @@ function filterForwardHeaders(headers: http.IncomingHttpHeaders): Record<string,
 
 export interface ProxyOptions {
   baseUrl?: string;
+  // DSH 0.1.2-rc.1 launch token（可选）：proxy 用它预换 `dsh-auth-*` 会话 cookie，
+  // 转发所有 Web 请求时带该 cookie，使 iframe 无需自行处理 303/cookie 交换。
+  launchToken?: string;
   onOpenPath?: (path: string) => Promise<void>;
   onPickDirectory?: () => Promise<string | null>;
   interceptPickDirectory?: boolean;
@@ -51,6 +54,7 @@ export interface ProxyHandle {
 
 export function createProxy(options: ProxyOptions = {}): ProxyHandle {
   const baseUrl = new URL(options.baseUrl || DEFAULT_BASE_URL);
+  const launchToken = options.launchToken || '';
   const onOpenPath = options.onOpenPath || (async () => { throw new Error('未配置 onOpenPath 处理函数'); });
   const onPickDirectory = options.onPickDirectory || (async () => { throw new Error('未配置 onPickDirectory 处理函数'); });
   const interceptPickDirectory = options.interceptPickDirectory !== false;
@@ -58,6 +62,32 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
   const onSessionPrompt = options.onSessionPrompt || (() => {});
   const onMuxFrame = options.onMuxFrame || (() => {});
   const logger = options.logger || ((_level: string, _msg: string) => {});
+
+  // ── DSH 0.1.2-rc.1 launch-token 认证：proxy 用 token 预换 `dsh-auth-*` 会话 cookie，
+  //    转发 Web 请求时带它——iframe 无需自行经历 303/cookie 交换（那在 VSCode webview 里
+  //    不可靠）。首次转发前 lazy 预取并缓存。
+  let authCookie: string | null = null;
+  let authInFlight: Promise<string | null> | null = null;
+  async function ensureAuthCookie(): Promise<string | null> {
+    if (authCookie !== null) return authCookie;
+    if (launchToken === '') return null;
+    if (authInFlight) return authInFlight;
+    authInFlight = (async () => {
+      try {
+        const r = await fetch(baseUrl.origin + '/?token=' + encodeURIComponent(launchToken), { redirect: 'manual' });
+        if (r.status === 303) {
+          const setCookie = r.headers.get('set-cookie');
+          if (setCookie) { authCookie = setCookie.split(';')[0]; }
+        }
+        return authCookie;
+      } catch {
+        return null;
+      } finally {
+        authInFlight = null;
+      }
+    })();
+    return authInFlight;
+  }
 
   const stats: ProxyStats = {
     httpRequests: 0, openPathCalls: 0, pickDirectoryCalls: 0,
@@ -97,6 +127,10 @@ export function createProxy(options: ProxyOptions = {}): ProxyHandle {
     headers.host = baseUrl.host;
     headers.origin = baseUrl.origin;
     headers.referer = baseUrl.origin + '/';
+    // 带预取的 DSH 会话 cookie（若配了 launch token），否则 iframe 的 303/cookie 交换在
+    // VSCode webview 里不可靠，harness 会返回 401 authentication required。
+    const cookie = await ensureAuthCookie();
+    if (cookie !== null && headers.cookie === undefined) headers.cookie = cookie;
 
     if (req.method === 'POST' && /^\/api\/session\./.test(target.pathname)) trackSessionIdFromRequest(req);
 
