@@ -24,6 +24,11 @@ export interface VscodeLike {
     onDidChangeTextEditorSelection(cb: (e: { textEditor: unknown }) => void): { dispose(): void };
   };
   workspace: { workspaceFolders?: readonly { name: string; uri: { fsPath: string } }[]; getWorkspaceFolder?(uri: unknown): { name: string; uri: { fsPath: string } } | undefined };
+  // VS Code 文档位置/区间构造器：`TextDocument.getText()` 需要真正的 vscode.Range 实例
+  // （传普通对象字面量会抛 "Invalid argument"——这是 activate 崩溃的根因）。
+  // 构造签名允许任意（真实 vscode.Position/Range 类赋给，运行时用 new vscode.Position/Range）。
+  Position: any;
+  Range: any;
 }
 
 const MAX_SELECTION = 4000;
@@ -79,11 +84,16 @@ export function bindEditorContext(ctx: EditorContextBarrel, vscode: VscodeLike):
     const folder = vscode.workspace.getWorkspaceFolder ? vscode.workspace.getWorkspaceFolder(doc.uri) : undefined;
     const rel = folder ? doc.uri.fsPath.slice(folder.uri.fsPath.length).replace(/^[\\/]+/, '') : undefined;
     const selectionText = sel ? doc.getText(sel) : undefined;
-    // 无选区时按需取内容：小文件全文 / 大文件仅前200行（用 range，避免整读）
+    // 无选区时按需取内容：小文件全文 / 大文件仅前200行（用 vscode.Range，避免整读；
+    // 传普通对象字面量会被 VS Code 拒绝抛 "Invalid argument"）。
     let fullText: string | undefined;
     if (!sel) {
       const lastLine = Math.min(doc.lineCount, 200);
-      fullText = doc.getText({ start: { line: 0, character: 0 }, end: { line: lastLine, character: 0 } });
+      const range = new vscode.Range(
+        new vscode.Position(0, 0),
+        new vscode.Position(lastLine, 0),
+      );
+      fullText = doc.getText(range);
     }
     ctx.block = formatEditorContext({
       filePath: doc.uri.fsPath,

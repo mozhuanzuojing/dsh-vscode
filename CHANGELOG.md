@@ -5,6 +5,16 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.15] - 2026-09-03
+
+### 🐛 修复 activate 崩溃：editor-context 的 getText 用 vscode.Range
+
+此前 `src/editor-context.ts` 里 `doc.getText({ start: {line,character}, end: {line,character} })` 传的是**普通对象字面量**，而 `TextDocument.getText()` 需要真正的 `vscode.Range` 实例——VS Code 运行时抛 **`Invalid argument`**，导致 `activate()` 崩溃（`editor-context.js:68 refresh`）。这是"给了正确 token 仍 401 + 状态栏消失"的最终根因（activate 崩溃 → proxy 不启动 → iframe 401）。
+
+- **修复**：`refresh` 里改用 `new vscode.Range(new vscode.Position(0,0), new vscode.Position(lastLine,0))` 传给 `doc.getText()`。
+- `VscodeLike` 接口补充 `Position`/`Range` 构造器声明（运行时注入真实 vscode）。
+- 此前该 bug 在无选区打开文件时触发（`!sel` 分支），activate 即崩；修复后正常。
+
 ## [0.7.14] - 2026-09-03
 
 ### 🐛 修复激活崩溃：打包遗漏 production 依赖 ws（状态栏消失）
