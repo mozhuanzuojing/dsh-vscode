@@ -5,6 +5,17 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.14] - 2026-09-03
+
+### 🐛 修复激活崩溃：打包遗漏 production 依赖 ws（状态栏消失）
+
+此前 `vsce package --no-dependencies` 打包把 proxy 依赖的 Node 模块 **`ws` 排除了**，导致扩展激活时 `Cannot find module 'ws'` → activate() 崩溃 → **底部状态栏不创建（消失）**。
+
+- **根因**：`vsce package --no-dependencies` 不打包 `node_modules`，而 `src/proxy.ts` 依赖 `ws`（WS 双向隧道）。
+- **修复**：打包**不再**加 `--no-dependencies`（vsce 自动打包 production 依赖 `ws`），.vsix 含 `node_modules/ws`。
+- 重新打包验证：0.7.13 修复后 .vsix 36 文件 / 88.91KB（含 ws）；`require('ws')` 在安装目录可解析。
+- 注意：0.7.12 / 0.7.13（此前用 `--no-dependencies` 发）在 Marketplace 上缺 ws、本地装后激活崩溃，本版本修复。
+
 ## [0.7.13] - 2026-09-03
 
 ### 🔐 完整支持带 token 的 harness 地址解析（launch-token 认证）
