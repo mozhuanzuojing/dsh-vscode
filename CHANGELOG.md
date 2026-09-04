@@ -5,6 +5,19 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.12] - 2026-09-03
+
+### 🔐 适配 DSH 0.1.2-rc.1 launch-token 认证（修复 "authentication required"）
+
+DSH 0.1.2-rc.1 的 web 界面**强制 launch-token 认证**：进程启动时随机生成 `?token=…`，首次访问用它换 `dsh-auth-*` 会话 cookie，之后 cookie 认证；无 token 的请求一律 401（无 loopback 例外）。dsh-vscode 此前是透明转发、iframe 不带 token，导致 VSCode 里报 `dsh web authentication required; reopen the URL printed by dsh web`。
+
+- **C1（Critical）**：`detect.ts` 的 `probe` 适配认证——`fetch(…, {redirect:'manual'})` 拿 303 的 `set-cookie`，再带 cookie 请求干净 `/` 验证 `__DSH_BOOT__`；不再被 401 占位页误导为"不可用服务"。新增 `splitLaunchToken()`：从用户填的带 token 地址提取 launch token、把 baseUrl 归一为干净 origin。
+- **C1（Critical）**：`extension.ts` 用 `splitLaunchToken` 归一 proxy 的 baseUrl（干净 origin，token 不残留——否则已认证请求会被 harness 反复 303 重定向），并保存 `currentLaunchToken`。
+- **C1（Critical）**：`view.ts` 的 iframe 首次 `src` 带 `/?token=<launchToken>`（换 cookie），token 只出现在首次；后续 iframe 内部导航由浏览器带 cookie。
+- 新增 `splitLaunchToken` 单测（test-units）。
+
+> 若你在 DSH 0.1.2-rc.1 下报 "authentication required"，用 `dsh web` 打印的完整地址（含 `?token=…`）配置 `awakening.dsh.baseUrl` 即可自动认证。
+
 ## [0.7.11] - 2026-09-03
 
 ### 🔧 适配 DSH 0.1.2-rc.1（namespaced Remote RPC）

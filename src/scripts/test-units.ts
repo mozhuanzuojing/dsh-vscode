@@ -2,6 +2,7 @@
 /* 架构改进后的单元测试：config 模块 + prompt 模块（注入 fake，无需 VS Code）。 */
 import { createConfig } from '../config';
 import { createPrompt } from '../prompt';
+import { splitLaunchToken } from '../detect';
 
 let failures = 0;
 function check(name, ok, detail) { console.log((ok ? 'PASS' : 'FAIL') + '  ' + name + (detail ? '  — ' + detail : '')); if (!ok) failures++; }
@@ -103,6 +104,13 @@ check('formatEditorContext 截断', formatEditorContext({ filePath: '/a/b.ts', s
   check('prompt 并发二次→null', second === null);
   resolveAsk(undefined);
   await first;
+
+  // ---- detect: splitLaunchToken (DSH 0.1.2-rc.1 launch-token 认证) ----
+  const withToken = splitLaunchToken('http://127.0.0.1:3082/?token=w-TpGCa_J14mk4.abc');
+  check('splitLaunchToken 提取 token', withToken.launchToken === 'w-TpGCa_J14mk4.abc');
+  check('splitLaunchToken 归一干净 origin', withToken.baseUrl === 'http://127.0.0.1:3082/');
+  const noToken = splitLaunchToken('http://127.0.0.1:3082');
+  check('splitLaunchToken 无 token', noToken.launchToken === '' && noToken.baseUrl === 'http://127.0.0.1:3082/');
 
   console.log(failures === 0 ? '\n全部通过 ✅' : '\n' + failures + ' 项失败 ❌');
   process.exit(failures === 0 ? 0 : 1);

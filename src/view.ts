@@ -3,6 +3,7 @@ import * as vscode from 'vscode';
 export interface DshViewStatus { origin?: string; baseUrl?: string; detected?: boolean; }
 export interface DshViewProviderOptions {
   getOrigin(): string;
+  getLaunchToken(): string; // DSH 0.1.2-rc.1 launch token（可能为空）
   getStatus(): DshViewStatus | null;
   logger?(level: string, msg: string): void;
 }
@@ -15,11 +16,13 @@ export interface DshViewProviderOptions {
 export class DshViewProvider implements vscode.WebviewViewProvider {
   private view: vscode.WebviewView | null = null;
   private getOrigin: () => string;
+  private getLaunchToken: () => string;
   private getStatus: () => DshViewStatus | null;
   private logger: (level: string, msg: string) => void;
 
   constructor(opts: DshViewProviderOptions) {
     this.getOrigin = opts.getOrigin;
+    this.getLaunchToken = opts.getLaunchToken || (() => '');
     this.getStatus = opts.getStatus || (() => null);
     this.logger = opts.logger || ((_l: string, _m: string) => {});
   }
@@ -60,6 +63,13 @@ export class DshViewProvider implements vscode.WebviewViewProvider {
     else this.view.title = 'DSH Awakening';
   }
 
+  /** iframe 首次 src：干净 origin + launch token（DSH 0.1.2-rc.1 认证换 cookie）。
+   *  token 只在首次加载出现；之后 iframe 内部导航由浏览器带 cookie。 */
+  private iframeSrc(origin: string): string {
+    const token = this.getLaunchToken();
+    return token ? origin + '/?token=' + encodeURIComponent(token) : origin;
+  }
+
   private renderHtml(): string {
     const origin = this.getOrigin();
     if (!origin) {
@@ -71,7 +81,7 @@ export class DshViewProvider implements vscode.WebviewViewProvider {
       'html,body{margin:0;padding:0;height:100%;background:transparent}',
       '#frame{position:fixed;top:0;left:0;width:100%;height:100%;border:0}',
       '#status{position:fixed;top:0;left:0;width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--vscode-descriptionForeground);font-family:var(--vscode-font-family);font-size:12px;pointer-events:none;z-index:1}', '#status.hidden{display:none}',
-      '</style>', '</head>', '<body>', '<div id="status">正在连接 DSH…</div>', '<iframe id="frame" src="' + origin + '" allow="clipboard-read; clipboard-write"></iframe>',
+      '</style>', '</head>', '<body>', '<div id="status">正在连接 DSH…</div>', '<iframe id="frame" src="' + this.iframeSrc(origin) + '" allow="clipboard-read; clipboard-write"></iframe>',
       '<script>', '(function(){var vscode=acquireVsCodeApi();var frame=document.getElementById("frame");var status=document.getElementById("status");function showLoading(){status.classList.remove("hidden")}function hideLoading(){status.classList.add("hidden")}frame.addEventListener("load",function(){if(frame.getAttribute("src")==="about:blank")return;hideLoading();vscode.postMessage({type:"loaded"})});window.addEventListener("message",function(e){var msg=e.data;if(!msg||msg.type!=="refresh")return;showLoading();var src=frame.getAttribute("src");frame.setAttribute("src","about:blank");requestAnimationFrame(function(){frame.setAttribute("src",src)})});showLoading()})();',
       '</script>', '</body>', '</html>'].join('\n');
   }

@@ -2,7 +2,7 @@ import * as vscode from 'vscode';
 import { mcpFind } from './openviking-mcp';
 import { createProxy, ProxyHandle, ProxyOptions } from './proxy';
 import { DshViewProvider } from './view';
-import { detectHarnessUrl, probe } from './detect';
+import { detectHarnessUrl, probe, splitLaunchToken } from './detect';
 import { createConfig, normalizeBaseUrl, DEFAULT_BASE_URL, Config } from './config';
 import { createPrompt, Prompt } from './prompt';
 import { createEditorContext, bindEditorContext, EditorContextBarrel } from './editor-context';
@@ -23,6 +23,8 @@ let restartQueue: Promise<unknown> = Promise.resolve(null);
 let shuttingDown = false;
 let lastRealPort = '';
 let currentExtId = 'guxgn.dsh-awakening';
+// DSH 0.1.2-rc.1 launch token（从用户填的 baseUrl 提取，供 iframe 首次加载换会话 cookie）。
+let currentLaunchToken = '';
 
 const prompt: Prompt = createPrompt({
   showInputBox: (opts) => new Promise<string | undefined>((resolve) => {
@@ -101,8 +103,13 @@ async function restartProxy(): Promise<ProxyHandle> {
     if (proxy && proxy.requestedBaseUrl === requested && proxy.interceptPickDirectory === interceptPickDirectory && arraysEqual(proxy.probeRange, probeRange)) return proxy;
     if (proxy) { await proxy.close().catch((err) => log('warn', '关闭旧代理: ' + (err as Error).message)); proxy = null; }
     const resolved = await resolveHarnessBaseUrl();
+    // DSH 0.1.2-rc.1 launch-token：baseUrl 若带 `?token=`，把它抽出来供 iframe 首次
+    // 认证，baseUrl 归一为干净 origin（token 不能留在 proxy baseUrl，否则已认证请求会被
+    // harness 反复 303 重定向）。
+    const { baseUrl, launchToken } = splitLaunchToken(resolved.url);
+    currentLaunchToken = launchToken;
     proxy = await createProxy({
-      baseUrl: resolved.url, interceptPickDirectory, editorContext,
+      baseUrl, interceptPickDirectory, editorContext,
       onOpenPath: openPathInVscode, onPickDirectory: pickDirectoryInVscode,
       onSessionPrompt: () => { if (applyDiff) applyDiff.armTurnWindow(); },
       onMuxFrame: handleMuxFrame,
@@ -312,6 +319,7 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
 
   provider = new DshViewProvider({
     getOrigin: () => (proxy ? proxy.origin : ''),
+    getLaunchToken: () => currentLaunchToken,
     getStatus: () => (proxy ? { origin: proxy.origin, baseUrl: proxy.baseUrl, detected: proxy.detectedBaseUrl !== false } : null),
     logger: log,
   });
