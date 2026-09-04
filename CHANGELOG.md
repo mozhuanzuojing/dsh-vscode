@@ -5,6 +5,19 @@
 格式遵循 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，
 版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [0.7.13] - 2026-09-03
+
+### 🔐 完整支持带 token 的 harness 地址解析（launch-token 认证）
+
+把 token 解析从「restartProxy 一处兜底」提升为**系统性支持**——所有入口（配置 `awakening.dsh.baseUrl`、prompt 录入、自动检测）都统一走 `splitLaunchToken`，url 归一为干净 origin、token 单列，下游一致。
+
+- **`resolveHarnessBaseUrl`**：返回前即用 `splitLaunchToken` 归一（干净 origin + `launchToken`），不再靠 `restartProxy` 二次处理；显式配置与自动检测两条路径统一。
+- **`openInBrowser`**：浏览器直接打开改为拼 `/?token=<launchToken>`（此前用干净 proxy.baseUrl 打开会 401）。
+- **`splitLaunchToken`**：兼容带 token + 其他 query（`?token=abc&x=1` 取 token、丢弃其余）、无协议补全（`127.0.0.1:3082?token=zzz`）、无 token 归一等。
+- 已验证所有 URL 变体解析正确；token 只在 iframe 首次 / 浏览器打开时拼接，proxy baseUrl 始终干净。
+
+> `awakening.dsh.baseUrl` 可直接填 `dsh web` 打印的完整地址（含 `?token=…`）。
+
 ## [0.7.12] - 2026-09-03
 
 ### 🔐 适配 DSH 0.1.2-rc.1 launch-token 认证（修复 "authentication required"）

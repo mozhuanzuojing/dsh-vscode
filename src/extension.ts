@@ -56,12 +56,18 @@ function log(level: string, message: string): void {
   console.log('[dsh-client] ' + line);
 }
 
-/** 解析最终 harness 地址：显式配置>直接使用；否则默认3080连不上则自动检测真实监听端口。 */
-async function resolveHarnessBaseUrl(): Promise<{ url: string; requested: string; detected: boolean; reason: string }> {
+/** 解析最终 harness 地址：显式配置>直接使用；否则默认3080连不上则自动检测真实监听端口。
+ *  DSH 0.1.2-rc.1 的 baseUrl 可能带 `?token=`（launch-token 认证）。这里统一用
+ *  splitLaunchToken 把 url 归一为「干净 origin」，token 单列返回——所有下游（proxy 的
+ *  baseUrl、端口显示、诊断）都拿到干净 origin，token 只在 iframe 首次认证需要时拼接。 */
+async function resolveHarnessBaseUrl(): Promise<{ url: string; requested: string; detected: boolean; reason: string; launchToken: string }> {
   const requested = config.getBaseUrl();
   if (config.isBaseUrlExplicit()) {
     const url = normalizeBaseUrl(requested);
-    if (url) return { url, requested, detected: true, reason: 'explicit config' };
+    if (url) {
+      const { baseUrl, launchToken } = splitLaunchToken(url);
+      return { url: baseUrl, requested, detected: true, reason: 'explicit config', launchToken };
+    }
     log('warn', 'baseUrl 配置非法（' + requested + '），回退默认 ' + config.getBaseUrl());
   }
   const res = await detectHarnessUrl({
@@ -69,7 +75,8 @@ async function resolveHarnessBaseUrl(): Promise<{ url: string; requested: string
     range: config.getProbeRange(),
     log,
   });
-  return { url: res.url, requested, detected: res.detected, reason: res.reason };
+  const { baseUrl, launchToken } = splitLaunchToken(res.url);
+  return { url: baseUrl, requested, detected: res.detected, reason: res.reason, launchToken };
 }
 
 function isPickDirectoryIntercepted(): boolean {
@@ -103,13 +110,10 @@ async function restartProxy(): Promise<ProxyHandle> {
     if (proxy && proxy.requestedBaseUrl === requested && proxy.interceptPickDirectory === interceptPickDirectory && arraysEqual(proxy.probeRange, probeRange)) return proxy;
     if (proxy) { await proxy.close().catch((err) => log('warn', '关闭旧代理: ' + (err as Error).message)); proxy = null; }
     const resolved = await resolveHarnessBaseUrl();
-    // DSH 0.1.2-rc.1 launch-token：baseUrl 若带 `?token=`，把它抽出来供 iframe 首次
-    // 认证，baseUrl 归一为干净 origin（token 不能留在 proxy baseUrl，否则已认证请求会被
-    // harness 反复 303 重定向）。
-    const { baseUrl, launchToken } = splitLaunchToken(resolved.url);
-    currentLaunchToken = launchToken;
+    // launch token 已在 resolveHarnessBaseUrl 里单列（url 已是干净 origin）。
+    currentLaunchToken = resolved.launchToken;
     proxy = await createProxy({
-      baseUrl, interceptPickDirectory, editorContext,
+      baseUrl: resolved.url, interceptPickDirectory, editorContext,
       onOpenPath: openPathInVscode, onPickDirectory: pickDirectoryInVscode,
       onSessionPrompt: () => { if (applyDiff) applyDiff.armTurnWindow(); },
       onMuxFrame: handleMuxFrame,
@@ -301,7 +305,12 @@ export async function activate(context: vscode.ExtensionContext): Promise<void> 
     vscode.commands.registerCommand('dsh.openSidebar', openSidebar),
     vscode.commands.registerCommand('dsh.refresh', () => { if (provider) provider.refresh(); }),
     vscode.commands.registerCommand('dsh.diagnostics', showDiagnostics),
-    vscode.commands.registerCommand('dsh.openInBrowser', () => { vscode.env.openExternal(vscode.Uri.parse((proxy && proxy.baseUrl) || config.getBaseUrl())); }),
+    vscode.commands.registerCommand('dsh.openInBrowser', () => {
+      // DSH 0.1.2-rc.1 认证：浏览器直接打开需带 launch token（否则 401）。
+      const base = (proxy && proxy.baseUrl) || normalizeBaseUrl(config.getBaseUrl()) || DEFAULT_BASE_URL;
+      const token = currentLaunchToken || splitLaunchToken(config.getBaseUrl()).launchToken;
+      vscode.env.openExternal(vscode.Uri.parse(token ? base.replace(/\/$/, '') + '/?token=' + encodeURIComponent(token) : base));
+    }),
     vscode.commands.registerCommand('awakening.openSettings', openSettings),
     vscode.commands.registerCommand('awakening.configureHarnessUrl', () => prompt.promptAndPersist()),
     vscode.commands.registerCommand('awakening.explainSelection', () => sendSelectionToDsh('解释')),
